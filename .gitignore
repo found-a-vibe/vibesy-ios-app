@@ -1,0 +1,66 @@
+# General macOS
+.DS_Store
+
+# Xcode
+Vibesy/*.xcworkspace
+Vibesy/xcuserdata/
+Vibesy/DerivedData/
+Vibesy/build/
+Vibesy/*.xcodeproj/project.xcworkspace/
+Vibesy/*.xcodeproj/xcuserdata/
+Vibesy/*.xcodeproj/xcshareddata/xcschemes/*
+
+# Swift Package Manager
+Vibesy/.swiftpm
+Vibesy/Package.resolved
+Vibesy/.build/
+
+# CocoaPods
+Vibesy/Pods/
+Vibesy/Podfile.lock
+
+# Carthage
+Vibesy/Carthage/Build/
+
+# SwiftData
+Vibesy/*.sqlite
+Vibesy/*.sqlite-wal
+Vibesy/*.sqlite-shm
+
+# SwiftPM Plugins
+Vibesy/.xcode-project/
+
+# Fastlane
+Vibesy/fastlane/report.xml
+Vibesy/fastlane/Preview.html
+Vibesy/fastlane/screenshots
+Vibesy/fastlane/test_output
+
+# Firebase
+Vibesy/GoogleService-Info.plist
+
+# Temporary and Cache Files
+Vibesy/*.tmp
+Vibesy/*.swp
+Vibesy/*.swp~
+Vibesy/*~
+Vibesy/.idea/
+Vibesy/.vscode/
+Vibesy/*.orig
+
+# Environment Files
+Vibesy/.env
+Vibesy/.env.*
+
+# Test Coverage
+Vibesy/*.xccoverage
+Vibesy/*.gcda
+
+# Custom Logs
+Vibesy/*.log
+
+# macOS Finder
+Vibesy/*.DS_Store
+
+# Custom SwiftData Generated Files
+Vibesy/metadata/
