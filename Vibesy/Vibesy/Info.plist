@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Vibesy would like to send you notifications to keep you informed about current events, updates, and activities from your friends.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ABeeZee-Italic.ttf</string>
+		<string>ABeeZee-Regular.ttf</string>
+		<string>Poppins-Regular.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

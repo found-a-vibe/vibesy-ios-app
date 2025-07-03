@@ -1,0 +1,16 @@
+[
+    {
+        "icon": "Account",
+        "title": "Profile Details",
+        "destination": "profileDetails"
+    },
+    {
+        "icon": "AddedEventIcon",
+        "title": "Posted Events",
+        "destination": "postedDetails"
+    },
+    {
+        "icon": "LogoutIcon",
+        "title": "Sign Out"
+    }
+]

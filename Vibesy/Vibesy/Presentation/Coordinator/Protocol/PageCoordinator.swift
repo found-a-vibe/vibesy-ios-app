@@ -28,7 +28,7 @@ protocol PageCoordinator: BaseCoordinator {
     /// Builds the main view for the specified page.
     /// - Parameter page: The page to build the view for.
     /// - Returns: The main view associated with the page.
-    func build(page: PagesType) -> CoordinatorView
+    func build(page: PagesType, args: Any?) -> CoordinatorView
 }
 
 extension PageCoordinator {

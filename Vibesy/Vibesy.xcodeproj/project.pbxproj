@@ -6,6 +6,16 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8725A7142D43E8820027E46D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 8725A7132D43E8820027E46D /* FirebaseMessaging */; };
+		8729E2772CF0475100E15DAC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 8729E2762CF0475100E15DAC /* FirebaseAuth */; };
+		873292002DE41B090078C953 /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = 873291FF2DE41B090078C953 /* WrappingHStack */; };
+		876B2CB02D0F7321004F87A5 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2CAF2D0F7321004F87A5 /* FirebaseFirestore */; };
+		876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2CB12D0F7A3F004F87A5 /* FirebaseStorage */; };
+		876B2D0C2D11421E004F87A5 /* StreamChatSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2D0B2D11421E004F87A5 /* StreamChatSwiftUI */; };
+		87F3F5922D31F17500758086 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 87F3F5912D31F17500758086 /* Kingfisher */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		8729E1A72CEF021500E15DAC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +75,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8725A7142D43E8820027E46D /* FirebaseMessaging in Frameworks */,
+				876B2D0C2D11421E004F87A5 /* StreamChatSwiftUI in Frameworks */,
+				873292002DE41B090078C953 /* WrappingHStack in Frameworks */,
+				8729E2772CF0475100E15DAC /* FirebaseAuth in Frameworks */,
+				876B2CB02D0F7321004F87A5 /* FirebaseFirestore in Frameworks */,
+				876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */,
+				87F3F5922D31F17500758086 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -91,6 +108,7 @@
 				8729E1942CEF021400E15DAC /* Vibesy */,
 				8729E1A92CEF021500E15DAC /* VibesyTests */,
 				8729E1B32CEF021500E15DAC /* VibesyUITests */,
+				876B2CAE2D0F7321004F87A5 /* Frameworks */,
 				8729E1932CEF021400E15DAC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,6 +121,13 @@
 				8729E1B02CEF021500E15DAC /* VibesyUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		876B2CAE2D0F7321004F87A5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -125,6 +150,13 @@
 			);
 			name = Vibesy;
 			packageProductDependencies = (
+				8729E2762CF0475100E15DAC /* FirebaseAuth */,
+				876B2CAF2D0F7321004F87A5 /* FirebaseFirestore */,
+				876B2CB12D0F7A3F004F87A5 /* FirebaseStorage */,
+				876B2D0B2D11421E004F87A5 /* StreamChatSwiftUI */,
+				87F3F5912D31F17500758086 /* Kingfisher */,
+				8725A7132D43E8820027E46D /* FirebaseMessaging */,
+				873291FF2DE41B090078C953 /* WrappingHStack */,
 			);
 			productName = Vibesy;
 			productReference = 8729E1922CEF021400E15DAC /* Vibesy.app */;
@@ -208,6 +240,12 @@
 			);
 			mainGroup = 8729E1892CEF021400E15DAC;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				876B2D072D114084004F87A5 /* XCRemoteSwiftPackageReference "stream-chat-swiftui" */,
+				87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				873291FE2DE41B090078C953 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8729E1932CEF021400E15DAC /* Products */;
 			projectDirPath = "";
@@ -289,17 +327,23 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Vibesy/Vibesy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_ASSET_PATHS = "\"Vibesy/Preview Content\"";
-				DEVELOPMENT_TEAM = X8Q46BZ7TY;
+				DEVELOPMENT_TEAM = 358LY48YU6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Vibesy/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Vibesy needs access to the camera to post content";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Vibesy uses your location to accurately track events in your area";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vibesy needs access to microphone to record audio";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Vibesy uses your photo library to let you upload and personalize your profile photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -307,6 +351,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.foundavibe.Vibesy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -320,17 +368,23 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Vibesy/Vibesy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_ASSET_PATHS = "\"Vibesy/Preview Content\"";
-				DEVELOPMENT_TEAM = X8Q46BZ7TY;
+				DEVELOPMENT_TEAM = 358LY48YU6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Vibesy/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Vibesy needs access to the camera to post content";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Vibesy uses your location to accurately track events in your area";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vibesy needs access to microphone to record audio";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Vibesy uses your photo library to let you upload and personalize your profile photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -338,6 +392,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.foundavibe.Vibesy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -575,6 +633,79 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.5.0;
+			};
+		};
+		873291FE2DE41B090078C953 /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dkk/WrappingHStack";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.11;
+			};
+		};
+		876B2D072D114084004F87A5 /* XCRemoteSwiftPackageReference "stream-chat-swiftui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getstream/stream-chat-swiftui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.68.0;
+			};
+		};
+		87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.1.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8725A7132D43E8820027E46D /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		8729E2762CF0475100E15DAC /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		873291FF2DE41B090078C953 /* WrappingHStack */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 873291FE2DE41B090078C953 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
+			productName = WrappingHStack;
+		};
+		876B2CAF2D0F7321004F87A5 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		876B2CB12D0F7A3F004F87A5 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		876B2D0B2D11421E004F87A5 /* StreamChatSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 876B2D072D114084004F87A5 /* XCRemoteSwiftPackageReference "stream-chat-swiftui" */;
+			productName = StreamChatSwiftUI;
+		};
+		87F3F5912D31F17500758086 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8729E18A2CEF021400E15DAC /* Project object */;
 }
