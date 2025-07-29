@@ -26,14 +26,16 @@ class LikedEventPageCoordinator: ObservableObject, PageCoordinator {
         case .likedEvents:
             return AnyView(LikedEventsView())
         case .likedEventDetails:
-            return AnyView(EventScreenView() { direction in
+            return AnyView(EventScreenView(){ direction in
                 if direction == .back {
                     self.pop()
                 }
                 if direction == .forward {
                     self.push(page: .matchedUserDetails)
                 }
-            }.navigationBarBackButtonHidden())
+            }
+                .navigationBarBackButtonHidden()
+                .toolbar(.hidden, for: .tabBar))
         case .matchedUserDetails:
             return AnyView(MatchedUserDetailsView() { direction in
                 if direction == .back {

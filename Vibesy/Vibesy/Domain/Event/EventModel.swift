@@ -12,6 +12,7 @@ class EventModel: ObservableObject {
     @Published var events: [Event] = []
     @Published var likedEvents: [Event] = []
     @Published var postedEvents: [Event] = []
+    @Published var reservedEvents: [Event] = []
     @Published var newEvent: Event? = nil
     @Published var currentEventDetails: Event? = nil
     @Published var errorMessage: String? // UI can observe this to display errors
@@ -110,6 +111,8 @@ class EventModel: ObservableObject {
             self.likedEvents = events
         case .postedEvents:
             self.postedEvents = events
+        case .reservedEvents:
+            self.reservedEvents = events
         default:
             break
         }

@@ -28,6 +28,7 @@ struct Event: Identifiable, Hashable {
     var guests: [Guest] = []
     var priceDetails: [PriceDetails] = []
     var likes: Set<String> = []
+    var reservations: Set<String> = []
     var interactions: Set<String> = []
     var createdBy: String
     var category: String?
@@ -70,6 +71,10 @@ struct Event: Identifiable, Hashable {
     
     func getLikes() -> Set<String> {
         return likes
+    }
+    
+    func getReservations() -> Set<String> {
+        return reservations
     }
     
     func getInteractions() -> Set<String> {

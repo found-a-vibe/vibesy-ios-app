@@ -11,11 +11,11 @@ import WebKit
 
 struct WebView: UIViewRepresentable {
     let url: URL
-
+    
     func makeUIView(context: Context) -> WKWebView {
         return WKWebView()
     }
-
+    
     func updateUIView(_ uiView: WKWebView, context: Context) {
         let request = URLRequest(url: url)
         uiView.load(request)
@@ -24,7 +24,7 @@ struct WebView: UIViewRepresentable {
 
 struct EventScreenView: View {
     @SwiftUI.Environment(\.dismiss) var dismiss
-
+    
     @EnvironmentObject var eventModel: EventModel
     @EnvironmentObject var userProfileModel: UserProfileModel
     @EnvironmentObject var interactionModel: InteractionModel
@@ -35,6 +35,7 @@ struct EventScreenView: View {
     @State var event: Event = Event(id: UUID(), title: "", description: "", date: "", timeRange: "", location: "", images: [""], createdBy: "")
     
     @State private var eventIsLiked: Bool = false
+    @State private var eventIsReserved: Bool = false
     
     @State var goNext: Bool = false
     
@@ -44,8 +45,11 @@ struct EventScreenView: View {
     
     var systemImageName: String? = nil
     
+    @State var showReservationConfirmation: Bool = false
+    @State var showReservationCancellation: Bool = false
+    
     @State private var showWebView = false
-
+    
     var navigate: ((_ direction: Direction) -> Void)? = nil
     
     func checkLikedEvents() {
@@ -56,6 +60,18 @@ struct EventScreenView: View {
             let found = likedEvents.first (where: { $0 == uid})
             if found != nil {
                 eventIsLiked = true
+            }
+        }
+    }
+    
+    func checkedReservedEvents() {
+        let reservedEvents = eventModel.currentEventDetails?.getReservations() ?? []
+        let uid = authenticationModel.state.currentUser?.id
+        
+        if let uid {
+            let found = reservedEvents.first (where: { $0 == uid})
+            if found != nil {
+                eventIsReserved = true
             }
         }
     }
@@ -74,6 +90,23 @@ struct EventScreenView: View {
             }
         } else {
             eventModel.buttonSwipeAction = .like
+        }
+    }
+    
+    func reserveEvent() {
+        if let uid = authenticationModel.state.currentUser?.id {
+            interactionModel.reserveEvent(userId: uid, eventId: event.id.uuidString)
+        }
+    }
+    
+    func cancelEventReservation() {
+        if let uid = authenticationModel.state.currentUser?.id {
+            interactionModel.cancelEventReservation(userId: uid, eventId: event.id.uuidString) {
+                if let navigate {
+                    navigate(.back)
+                }
+            }
+            
         }
     }
     
@@ -96,7 +129,7 @@ struct EventScreenView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         // Event Image
-                        EventImageView(title: event.title, eventImage: image, eventIsLiked: eventIsLiked, enableAdminMode: enableAdminMode, interactWithEvent: interactWithEvent)
+                        EventImageView(title: event.title, eventImage: image, eventIsLiked: eventIsLiked, eventIsReserved: eventIsReserved, enableAdminMode: enableAdminMode, interactWithEvent: interactWithEvent)
                         // Event Details
                         EventDetailsView(description: event.description, location: event.location, date: event.date, timeRange: event.timeRange)
                         // Tags
@@ -106,9 +139,7 @@ struct EventScreenView: View {
                             SpeakerGuestView(guests: event.guests)
                         }
                         
-                        if event.priceDetails.count > 0 {
-                            PriceDetailsView(priceDetails: event.priceDetails)
-                        }
+                        PriceDetailsView(priceDetails: event.priceDetails, showWebView: $showWebView, eventIsReserved: $eventIsReserved)
                         
                         // Footer Section
                         LikedUsersView(users: $userProfileModel.matchedProfiles) { direction in
@@ -118,15 +149,78 @@ struct EventScreenView: View {
                             }
                         }
                     }
+                    .overlay(alignment: .center) {
+                        if showReservationConfirmation || showReservationCancellation {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            .goldenBrown,
+                                            .espresso,
+                                        ]), startPoint: .topLeading, endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(maxWidth: 393, maxHeight: 155)
+                                .padding()
+                                .overlay {
+                                    ZStack {
+                                        
+                                        VStack(alignment: .center, spacing: 12) {
+                                            if showReservationConfirmation {
+                                                Text("Get Ready to Vibe!")
+                                                    .font(.abeezeeItalic(size: 20))
+                                                    .multilineTextAlignment(.center)
+                                                Text("Your RSVP is confirmed.\nYou can manage your reservation from your profile.")
+                                                    .font(.abeezeeItalic(size: 16))
+                                                    .multilineTextAlignment(.center)
+                                                    .padding(.horizontal)
+                                                
+                                            }
+                                            if showReservationCancellation {
+                                                Text("Are You Sure?")
+                                                    .font(.abeezeeItalic(size: 20))
+                                                
+                                                Text("If you bought your tickets online, please request a refund directly from the original ticket provider.")
+                                                    .font(.abeezeeItalic(size: 14))
+                                                    .multilineTextAlignment(.center)
+                                                    .padding(.horizontal)
+                                            }
+                                            Button(action: {
+                                                if showReservationConfirmation {
+                                                    showReservationConfirmation.toggle()
+                                                    interactWithEvent()
+                                                }
+                                                if showReservationCancellation {
+                                                    showReservationCancellation.toggle()
+                                                    cancelEventReservation()
+                                                }
+                                            }) {
+                                                Text(showReservationConfirmation ? "Confirm" : "Cancel")
+                                                    .font(.abeezeeItalic(size: 12))
+                                                    .foregroundColor(.white)
+                                                    .frame(width: 124, height: 28)
+                                                    .padding(2)
+                                                    .background(.sandstone)
+                                                    .cornerRadius(8)
+                                            }
+                                        }
+                                    }
+                                    .foregroundStyle(.white)
+                                }
+                                .animation(.easeInOut)
+                        }
+                    }
                     .sheet(isPresented: $showWebView) {
-//                        WebView(url: URL(string: event.priceDetails.link ?? "")!)
+                        WebView(url: URL(string: event.priceDetails[0].link ?? "")!)
                     }
                     .padding()
                 }
-                if eventIsLiked {
-                    VStack(alignment: .center) {
+                
+                VStack(alignment: .center) {
+                    if eventIsLiked && !enableAdminMode {
                         Button(action: {
-//                            showWebView.toggle()
+                            showReservationConfirmation.toggle()
+                            reserveEvent()
                         }) {
                             Text("Reserve")
                                 .font(.abeezeeItalic(size: 12))
@@ -137,9 +231,24 @@ struct EventScreenView: View {
                                 .cornerRadius(8)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding()
+                    
+                    if eventIsReserved {
+                        Button(action: {
+                            showReservationCancellation.toggle()
+                        }) {
+                            Text("Cancel Reservation")
+                                .font(.abeezeeItalic(size: 12))
+                                .foregroundColor(.white)
+                                .frame(width: 124, height: 28)
+                                .padding(2)
+                                .background(.espresso)
+                                .cornerRadius(8)
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding()
+                
             }
         }
         .navigationDestination(isPresented: handleNavigation ? $goNext : .constant(false)) {
@@ -158,6 +267,7 @@ struct EventScreenView: View {
                 userProfileModel.getMatchedUsersProfiles(userId: userId,userIds: event.likes.filter { $0 != userId})
             }
             checkLikedEvents()
+            checkedReservedEvents()
         }
         .onChange(of: eventModel.events) { _, updatedEvents in
             guard let _ = updatedEvents.firstIndex(where: { $0.id.uuidString == event.id.uuidString }) else {
@@ -181,7 +291,7 @@ struct HeaderView: View {
     @EnvironmentObject var eventModel: EventModel
     
     @Binding var isNewEventViewPresented: Bool
-
+    
     var enableAdminMode: Bool = false
     
     var systemImageName: String? = nil
@@ -223,11 +333,12 @@ struct HeaderView: View {
 // MARK: - Event Image View
 struct EventImageView: View {
     @EnvironmentObject var eventModel: EventModel
-
+    
     var title: String
     var eventImage: String?
     
     var eventIsLiked: Bool
+    var eventIsReserved: Bool
     
     var enableAdminMode: Bool
     
@@ -253,7 +364,7 @@ struct EventImageView: View {
                 .padding(.bottom, 12)
         }
         .overlay(alignment: .topTrailing) {
-            if !enableAdminMode {
+            if !enableAdminMode && !eventIsReserved {
                 Image(systemName: eventIsLiked ? "heart.fill" : "heart")
                     .foregroundColor(.red)
                     .padding()
@@ -317,9 +428,9 @@ struct TagsView: View {
             ForEach(tags, id: \.self) { tag in
                 Text("#\(tag)")
                     .font(.caption)
-                    .foregroundColor(.espresso)
+                    .foregroundColor(.white)
                     .padding(6)
-                    .background(.sandstone)
+                    .background(.goldenBrown)
                     .cornerRadius(8)
             }
         }
@@ -330,7 +441,7 @@ struct TagsView: View {
 // MARK: - Speaker/Guest Section
 struct SpeakerGuestView: View {
     let guests: [Guest]
-
+    
     var body: some View {
         VStack(alignment: .center) {
             Text("Speaker/Guest")
@@ -349,7 +460,9 @@ struct SpeakerGuestView: View {
 
 struct PriceDetailsView: View {
     let priceDetails: [PriceDetails]
-
+    @Binding var showWebView: Bool
+    @Binding var eventIsReserved: Bool
+    
     var body: some View {
         VStack(alignment: .center) {
             Text("Event Price")
@@ -357,15 +470,38 @@ struct PriceDetailsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding([.top, .horizontal])
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    ForEach(priceDetails, id: \.self) { price in
-                        VStack {
-                            Text(price.title)
-                            Text(price.price)
+            if priceDetails.count > 0 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(priceDetails, id: \.self) { price in
+                            VStack(alignment: .center, spacing: 8) {
+                                if let link = price.link {
+                                    if !link.isEmpty {
+                                        Text("View Tickets Online")
+                                            .font(.abeezeeItalic(size: 14))
+                                            .foregroundStyle(.sandstone)
+                                            .underline()
+                                            .onTapGesture {
+                                                showWebView.toggle()
+                                            }
+                                        
+                                        
+                                        
+                                    }
+                                } else {
+                                    Text(price.title)
+                                        .font(.abeezeeItalic(size: 14))
+                                    Text("$\(price.price)")
+                                        .font(.abeezeeItalic(size: 14))
+                                        .foregroundStyle(.sandstone)
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal)
                 }
+            } else {
+                Text("Free Event")
             }
         }
     }

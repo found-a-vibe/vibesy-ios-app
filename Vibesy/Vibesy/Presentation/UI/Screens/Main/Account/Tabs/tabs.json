@@ -7,7 +7,12 @@
     {
         "icon": "AddedEventIcon",
         "title": "Posted Events",
-        "destination": "postedDetails"
+        "destination": "postedEvents"
+    },
+    {
+        "icon": "ReservedEventIcon",
+        "title": "Reserved Events",
+        "destination": "reservedEvents"
     },
     {
         "icon": "LogoutIcon",

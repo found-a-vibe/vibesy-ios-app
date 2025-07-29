@@ -33,4 +33,22 @@ class FirebaseInteractionService: InteractionService {
             }
         }
     }
+    
+    func reserveEvent(uid: String, eventId: String, completion: @escaping ((any Error)?) -> Void) {
+        interactionManager.reserveEvent(uid: uid, eventId: eventId) { error in
+            if let error {
+                completion(error)
+            }
+        }
+    }
+    
+    func cancelEventReservation(uid: String, eventId: String, completion: @escaping ((any Error)?) -> Void) {
+        interactionManager.cancelEventReservation(uid: uid, eventId: eventId) { error in
+            if let error {
+                completion(error)
+            } else {
+                completion(nil)
+            }
+        }
+    }
 }

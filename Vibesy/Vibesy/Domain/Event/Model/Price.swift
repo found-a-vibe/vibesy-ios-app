@@ -10,5 +10,5 @@ import Foundation
 struct PriceDetails: Hashable {
     var title: String
     var price: String
-    var link: String
+    var link: String?
 }

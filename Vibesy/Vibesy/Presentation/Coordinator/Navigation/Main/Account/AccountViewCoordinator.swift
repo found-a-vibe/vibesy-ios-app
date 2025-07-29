@@ -11,7 +11,7 @@ import SwiftUI
 enum AccountPages: String, Hashable, Codable, Pages {
     case accountView = "accountView"
     case profileDetails = "profileDetails"
-    case postedDetails = "postedDetails"
+    case postedEvents = "postedEvents"
     case attendedEvents = "attendedEvents"
     case reservedEvents = "reservedEvents"
     case profileDetailsEdit = "profileDetailsEdit"
@@ -42,7 +42,7 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
             }
                 .toolbar(.hidden, for: .tabBar)
                 .navigationBarBackButtonHidden())
-        case .postedDetails:
+        case .postedEvents:
             return AnyView(EventListView(eventsHeaderViewText: "Posted Events", eventsByStatus: .postedEvents) { direction in
                 if direction == .root {
                     self.popToRoot()
@@ -57,7 +57,16 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
         case .attendedEvents:
             return AnyView(EmptyView().tint(.goldenBrown))
         case .reservedEvents:
-            return AnyView(EmptyView().tint(.goldenBrown))
+            return AnyView(EventListView(eventsHeaderViewText: "Reserved Events", eventsByStatus: .reservedEvents) { direction in
+                if direction == .root {
+                    self.popToRoot()
+                }
+                if direction == .forward {
+                    self.push(page: .eventDetails)
+                }
+            }
+                .toolbar(.hidden, for: .tabBar)
+                .navigationBarBackButtonHidden())
         case .eventDetails:
             return AnyView(EventScreenView(enableAdminMode: enableAdminMode) { direction in
                 if direction == .back {

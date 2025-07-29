@@ -95,7 +95,8 @@ struct FirebaseEventMetaDataManager {
     }
     
     func getAllEvents(uid: String, completion: @escaping (Result<[Event], Error>) -> Void) {
-        firestore.collection("events").getDocuments { snapshot, error in
+        firestore.collection("events")
+            .getDocuments { snapshot, error in
             if let error = error {
                 print("Error fetching events: \(error.localizedDescription)")
                 completion(.failure(error))
@@ -112,9 +113,11 @@ struct FirebaseEventMetaDataManager {
             let events = documents.compactMap { document -> Event? in
                 let data = document.data()
                 let interactions = data["interactions"] as? [String] ?? []
+                let reservations = data["reservations"] as? [String] ?? []
                 
-                // Skip events where the user has interacted
+                // Skip events where the user has interacted or reserved
                 guard !interactions.contains(uid) else { return nil }
+                guard !reservations.contains(uid) else {return nil}
                 
                 // Parse event data
                 return eventParser.parse(from: data)

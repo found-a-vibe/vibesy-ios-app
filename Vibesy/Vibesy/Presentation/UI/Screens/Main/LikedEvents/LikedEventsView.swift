@@ -10,6 +10,7 @@ import SwiftUI
 struct LikedEventsView: View {
     @EnvironmentObject var pageCoordinator: LikedEventPageCoordinator
     @EnvironmentObject var userProfileModel: UserProfileModel
+    
     var body: some View {
         EventListView(eventsHeaderViewText: "Liked Events", showEventCardIcon: true, eventsByStatus: .likedEvents, profileImageUrl: "") { direction in
             if direction == .forward {

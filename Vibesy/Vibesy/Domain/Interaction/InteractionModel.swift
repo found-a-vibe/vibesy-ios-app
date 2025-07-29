@@ -57,4 +57,27 @@ class InteractionModel: ObservableObject {
             }
         }
     }
+    
+    func reserveEvent(userId: String, eventId: String) {
+        service.reserveEvent(uid: userId, eventId: eventId) { error in
+            if let error = error {
+                print("Error reserving event: \(error)")
+            } else {
+                print("Event reserved successfully.")
+            }
+        }
+    }
+    
+    func cancelEventReservation(userId: String, eventId: String, completion: (() -> Void)? = nil) {
+        service.cancelEventReservation(uid: userId, eventId: eventId) { error in
+            if let error = error {
+                print("Error unliking event: \(error)")
+            } else {
+                if let completion {
+                    completion()
+                }
+                print("Event cancelled successfully.")
+            }
+        }
+    }
 }

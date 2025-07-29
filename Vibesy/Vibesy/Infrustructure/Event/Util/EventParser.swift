@@ -26,6 +26,7 @@ struct EventParser {
         let hashtags = parseStringArray(from: data["hashtags"])
         let category = data["category"] as? String
         let likes = parseStringSet(from: data["likes"])
+        let reservations = parseStringSet(from: data["reservations"])
         let interactions = parseStringSet(from: data["interactions"])
         
         // Parse guests
@@ -40,11 +41,13 @@ struct EventParser {
         // Parse price details
         let priceDetails = (data["priceDetails"] as? [[String: Any]])?.compactMap { priceDict -> PriceDetails? in
             guard let title = priceDict["title"] as? String,
-                  let price = priceDict["price"] as? String,
-                  let link =  priceDict["link"] as? String else { return nil }
+                  let price = priceDict["price"] as? String else { return nil }
+            
+            let link = priceDict["link"] as? String
+            
             return PriceDetails(title: title, price: price, link: link)
         } ?? []
-        
+                
         // Parse image URLs
         let imageUrls = parseStringArray(from: data["images"])
         
@@ -61,6 +64,7 @@ struct EventParser {
             guests: guests,
             priceDetails: priceDetails,
             likes: likes,
+            reservations: reservations,
             interactions: interactions,
             createdBy: createdBy,
             category: category

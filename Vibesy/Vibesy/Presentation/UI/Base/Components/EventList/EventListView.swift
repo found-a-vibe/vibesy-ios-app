@@ -144,6 +144,8 @@ struct EventListView: View {
             events = eventModel.likedEvents
         case .postedEvents:
             events = eventModel.postedEvents
+        case .reservedEvents:
+            events = eventModel.reservedEvents
         default:
             events = []
         }

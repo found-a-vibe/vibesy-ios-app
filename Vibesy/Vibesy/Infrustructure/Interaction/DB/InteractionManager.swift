@@ -150,4 +150,94 @@ struct InteractionManager {
             }
         }
     }
+    
+    func reserveEvent(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        let userRef = firestore.collection("users").document(uid)
+        let eventRef = firestore.collection("events").document(eventId.lowercased())
+
+        // 🔹 Ensure the event exists before modifying
+        eventRef.getDocument { (document, error) in
+            guard document?.exists == true else {
+                print("Event not found before transaction.")
+                completion(NSError(domain: "Firestore", code: 404, userInfo: [NSLocalizedDescriptionKey: "Event does not exist"]))
+                return
+            }
+
+            // 🔹 Run transaction to add reservation
+            firestore.runTransaction({ (transaction, errorPointer) -> Any? in
+                guard
+                    let userSnapshot = try? transaction.getDocument(userRef),
+                    let eventSnapshot = try? transaction.getDocument(eventRef)
+                else {
+                    print("Failed to retrieve user or event document.")
+                    return nil
+                }
+
+                // Add event to user's reservation list
+                var reservedEvents = userSnapshot.get("reservedEvents") as? [String] ?? []
+                if !reservedEvents.contains(eventId) {
+                    reservedEvents.append(eventId)
+                    transaction.updateData(["reservedEvents": reservedEvents], forDocument: userRef)
+                }
+
+                // Update event's reservations
+                var reservations = eventSnapshot.get("reservations") as? [String] ?? []
+
+                if !reservations.contains(uid) {
+                    reservations.append(uid)
+                    transaction.updateData(["reservations": reservations ], forDocument: eventRef)
+                }
+
+                print("Successfully reserved event.")
+                return nil
+            }) { (_, error) in
+                completion(error)
+            }
+        }
+    }
+    
+    func cancelEventReservation(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        let userRef = firestore.collection("users").document(uid)
+        let eventRef = firestore.collection("events").document(eventId.lowercased())
+
+        // Ensure the event exists before transaction
+        eventRef.getDocument { (document, error) in
+            guard document?.exists == true else {
+                print("Event not found before transaction.")
+                completion(NSError(domain: "Firestore", code: 404, userInfo: [NSLocalizedDescriptionKey: "Event does not exist"]))
+                return
+            }
+
+            // Run transaction to remove like
+            firestore.runTransaction({ (transaction, errorPointer) -> Any? in
+                guard
+                    let userSnapshot = try? transaction.getDocument(userRef),
+                    let eventSnapshot = try? transaction.getDocument(eventRef)
+                else {
+                    print("Failed to retrieve user or event document.")
+                    return nil
+                }
+
+                // Remove event from user's liked list
+                var reservedEvents = userSnapshot.get("reservedEvents") as? [String] ?? []
+                if reservedEvents.contains(eventId) {
+                    reservedEvents.removeAll { $0 == eventId }
+                    transaction.updateData(["reservedEvents": reservedEvents], forDocument: userRef)
+                }
+
+                // Remove user from event's likes & interactions
+                var reservations = eventSnapshot.get("reservations") as? [String] ?? []
+
+                if reservations.contains(uid) {
+                    reservations.removeAll { $0 == uid }
+                    transaction.updateData(["reservations": reservations], forDocument: eventRef)
+                }
+
+                print("Successfully cancelled event reservation.")
+                return nil
+            }) { (_, error) in
+                completion(error)
+            }
+        }
+    }
 }
