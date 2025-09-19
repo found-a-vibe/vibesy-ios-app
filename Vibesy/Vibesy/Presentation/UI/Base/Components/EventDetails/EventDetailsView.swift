@@ -7,20 +7,6 @@
 
 import Kingfisher
 import SwiftUI
-import WebKit
-
-struct WebView: UIViewRepresentable {
-    let url: URL
-    
-    func makeUIView(context: Context) -> WKWebView {
-        return WKWebView()
-    }
-    
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        let request = URLRequest(url: url)
-        uiView.load(request)
-    }
-}
 
 struct EventScreenView: View {
     @SwiftUI.Environment(\.dismiss) var dismiss
@@ -289,6 +275,10 @@ struct EventScreenView: View {
 // MARK: - Header View
 struct HeaderView: View {
     @EnvironmentObject var eventModel: EventModel
+    @EnvironmentObject var interactionModel: InteractionModel
+    @EnvironmentObject var authenticationModel: AuthenticationModel
+    
+    @State var showFlagContentView = false
     
     @Binding var isNewEventViewPresented: Bool
     
@@ -317,14 +307,43 @@ struct HeaderView: View {
                         isNewEventViewPresented.toggle()
                     })
                     Button("Delete", action: {
-                        eventModel.deleteEvent()
-                        eventModel.removeCurrentEventDetails()
+                        Task {
+                            do {
+                                try await eventModel.deleteEvent()
+                                eventModel.removeCurrentEventDetails()
+                            } catch {
+                            }
+                        }
                     })
                 } label: {
                     Image(systemName: "ellipsis")
                 }
                 .padding()
             }
+            if !enableAdminMode {
+                Menu {
+                    Button(action: { showFlagContentView.toggle() }) {
+                        Label("Report Content", systemImage: "flag")
+                    }
+                } label: {
+                    Label("", systemImage: "ellipsis.circle")
+                }
+                .foregroundStyle(.espresso)
+            }
+        }
+        .sheet(isPresented: $showFlagContentView) {
+            FlagContentView(showFlagContentView: $showFlagContentView) {
+                if let user = authenticationModel.state.currentUser, let currentEventDetails = eventModel.currentEventDetails {
+                    interactionModel.unlikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
+                    interactionModel.dislikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
+                    eventModel.events.removeAll(where: { $0.id.uuidString == currentEventDetails.id.uuidString})
+                    eventModel.removeCurrentEventDetails()
+                }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(24)
+            .interactiveDismissDisabled(false)
         }
         .padding(.horizontal)
     }

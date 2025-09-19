@@ -17,17 +17,15 @@ struct SignUpView: View {
     
     @State private var isSecure = true
     
-    @State private var rememberMe: Bool = UserDefaults.standard.bool(forKey: "rememberMe")
+    @State private var selectedURL: IdentifiedURL?
+    @State private var showWebView = false
+    
+    @State private var userDoesAgreeToTerms = false
     
     @Binding var isSignIn: Bool
     
     private func handleSubmit() {
         authenticationModel.signUp()
-    }
-    
-    /// Save `rememberMe` to UserDefaults and trigger action if true
-    private func setRememberMe(_ value: Bool) {
-        UserDefaults.standard.set(value, forKey: "rememberMe") // Save to UserDefaults
     }
     
     var body: some View {
@@ -43,12 +41,12 @@ struct SignUpView: View {
                     .frame(width: 236, height: 40)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white)
-                    Spacer()
+                Spacer()
             }
             .frame(
                 maxWidth: .infinity,
                 maxHeight: UIScreen.main.bounds.height <= 568 ? 150 : 240
-                )
+            )
             .background (
                 LinearGradient(
                     gradient: Gradient(
@@ -60,79 +58,120 @@ struct SignUpView: View {
                 Spacer(minLength: UIScreen.main.bounds.height <= 568 ? 150 : 180)
                 
                 Color.white
-                .clipShape(
-                    .rect(
-                        topLeadingRadius: 60,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: 60
+                    .clipShape(
+                        .rect(
+                            topLeadingRadius: 60,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: 60
+                        )
                     )
-                )
-                .overlay {
-                    VStack {
-                        Text("Sign Up")
-                            .font(.abeezee(size: 26))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .foregroundStyle(.espresso)
-                            .padding(.vertical)
-                        TextFieldView(
-                            input: $authenticationModel.email, keyboardType: .emailAddress,
-                            iconName: "envelope.fill",
-                            placeholder: "info@youremail.com"
-                        )
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .focused($emailFieldIsFocused)
-                        TextFieldView(
-                            input: $authenticationModel.password, isSecure: $isSecure,
-                            keyboardType: .default, iconName: "lock.fill",
-                            placeholder: "password"
-                        )
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .overlay(alignment: .trailing) {
-                            Image(systemName: isSecure ? "eye.slash" : "eye")
-                                .resizable()
-                                .frame(width: 20, height: 16)
-                                .onTapGesture {
-                                    isSecure.toggle()
+                    .overlay {
+                        VStack {
+                            Text("Sign Up")
+                                .font(.abeezee(size: 26))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundStyle(.espresso)
+                                .padding(.vertical)
+                            TextFieldView(
+                                input: $authenticationModel.email, keyboardType: .emailAddress,
+                                iconName: "envelope.fill",
+                                placeholder: "info@youremail.com"
+                            )
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .focused($emailFieldIsFocused)
+                            TextFieldView(
+                                input: $authenticationModel.password, isSecure: $isSecure,
+                                keyboardType: .default, iconName: "lock.fill",
+                                placeholder: "password"
+                            )
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .overlay(alignment: .trailing) {
+                                Image(systemName: isSecure ? "eye.slash" : "eye")
+                                    .resizable()
+                                    .frame(width: 20, height: 16)
+                                    .onTapGesture {
+                                        isSecure.toggle()
+                                    }
+                                    .padding()
+                            }
+                            .padding(.bottom)
+                            
+                            HStack(spacing: 0) {
+                                Toggle(isOn: $userDoesAgreeToTerms) {
+                                    
                                 }
-                                .padding()
-                        }
-                        .padding(.bottom)
-                        Button(
-                            action: {
-                                handleSubmit()
-                            },
-                            label: {
-                                Text("Sign Up")
-                                    .font(.custom("ABeeZee-Italic", size: 20))
-                                    .frame(maxWidth: .infinity, maxHeight: 51)
-                                    .foregroundStyle(.white)
+                                .toggleStyle(iOSCheckboxToggleStyle())
+                                .onChange(of: userDoesAgreeToTerms) { _, newValue in
+
+                                }
+                                .padding(.trailing, 10)
+                                
+                                Text("I agree to the ")
+                                    .fixedSize(horizontal: false, vertical: true)
+                                
+                                Button(action: {
+                                    selectedURL = IdentifiedURL(string: "https://found-a-vibe.github.io/vibesy-legal/eula.pdf")
+                                    showWebView = true
+                                }) {
+                                    Text("EULA")
+                                        .foregroundColor(.espresso)
+                                        .underline()
+                                }
+                                
+                                Text(" and")
+                                
+                                Button(action: {
+                                    selectedURL = IdentifiedURL(string: "https://found-a-vibe.github.io/vibesy-legal/privacy_policy.pdf")
+                                    showWebView = true
+                                }) {
+                                    Text(" Privacy Policy")
+                                        .foregroundColor(.espresso)
+                                        .underline()
+                                }
+                                
+                                Text(".")
                             }
-                        )
-                        .frame(height: 51)
-                        .buttonStyle(.borderedProminent)
-                        .buttonBorderShape(.roundedRectangle(radius: 8))
-                        .tint(.espresso)
-                        .padding(.vertical)
-                        
-                        HStack {
-                            Text("Already have an account?")
-                            Button(action: {
-                                isSignIn.toggle()
-                            }) {
-                                Text("Log In")
-                                    .foregroundStyle(.espresso)
-                                    .underline()
+                            .fixedSize(horizontal: false, vertical: true)
+                            Button(
+                                action: {
+                                    handleSubmit()
+                                },
+                                label: {
+                                    Text("Sign Up")
+                                        .font(.custom("ABeeZee-Italic", size: 20))
+                                        .frame(maxWidth: .infinity, maxHeight: 51)
+                                        .foregroundStyle(.white)
+                                }
+                            )
+                            .frame(height: 51)
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.roundedRectangle(radius: 8))
+                            .tint(.espresso)
+                            .padding(.vertical)
+                            .disabled(!userDoesAgreeToTerms)
+                            
+                            HStack {
+                                Text("Already have an account?")
+                                Button(action: {
+                                    isSignIn.toggle()
+                                }) {
+                                    Text("Log In")
+                                        .foregroundStyle(.espresso)
+                                        .underline()
+                                }
                             }
+                            .buttonStyle(.plain)
+                            .frame(maxHeight: .infinity, alignment: .center)
                         }
-                        .buttonStyle(.plain)
-                        .frame(maxHeight: .infinity, alignment: .center)
+                        .padding()
                     }
-                    .padding()
-                }
             }
+        }
+        .sheet(item: $selectedURL) { item in
+            WebView(url: item.url)
         }
         .overlay(alignment: .center) {
             if authenticationModel.authError != nil {

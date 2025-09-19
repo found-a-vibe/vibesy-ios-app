@@ -6,6 +6,7 @@
 //
 import SwiftUI
 
+@MainActor
 struct SizeConstants {
     static var screenCutoff: CGFloat {
         (UIScreen.main.bounds.width / 2) * 0.8

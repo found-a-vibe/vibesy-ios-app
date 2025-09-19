@@ -17,6 +17,8 @@ enum AccountPages: String, Hashable, Codable, Pages {
     case profileDetailsEdit = "profileDetailsEdit"
     case eventDetails = "eventDetails"
     case matchedUserDetails = "matchedUserDetails"
+    case settingsView = "settingsView"
+    case hostSettings = "hostSettings"
 }
 
 // Coordinator responsible for managing navigation within the workout module
@@ -88,6 +90,22 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
                     self.pop()
                 }
             }.navigationBarBackButtonHidden())
+        case .settingsView:
+            return AnyView(SettingsView() { direction in
+                if direction == .back {
+                    self.pop()
+                }
+            }
+            .toolbar(.hidden, for: .tabBar)
+            .navigationBarBackButtonHidden())
+        case .hostSettings:
+            return AnyView(HostManagementView() { direction in
+                if direction == .back {
+                    self.pop()
+                }
+            }
+            .toolbar(.hidden, for: .tabBar)
+            .navigationBarBackButtonHidden())
         }
     }
 }

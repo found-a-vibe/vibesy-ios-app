@@ -14,6 +14,7 @@
 		876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2CB12D0F7A3F004F87A5 /* FirebaseStorage */; };
 		876B2D0C2D11421E004F87A5 /* StreamChatSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2D0B2D11421E004F87A5 /* StreamChatSwiftUI */; };
 		87F3F5922D31F17500758086 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 87F3F5912D31F17500758086 /* Kingfisher */; };
+		87F64D162E4D48FB00E0B79D /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 87F64D152E4D48FB00E0B79D /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 				8725A7142D43E8820027E46D /* FirebaseMessaging in Frameworks */,
 				876B2D0C2D11421E004F87A5 /* StreamChatSwiftUI in Frameworks */,
 				873292002DE41B090078C953 /* WrappingHStack in Frameworks */,
+				87F64D162E4D48FB00E0B79D /* FirebaseFunctions in Frameworks */,
 				8729E2772CF0475100E15DAC /* FirebaseAuth in Frameworks */,
 				876B2CB02D0F7321004F87A5 /* FirebaseFirestore in Frameworks */,
 				876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */,
@@ -157,6 +159,7 @@
 				87F3F5912D31F17500758086 /* Kingfisher */,
 				8725A7132D43E8820027E46D /* FirebaseMessaging */,
 				873291FF2DE41B090078C953 /* WrappingHStack */,
+				87F64D152E4D48FB00E0B79D /* FirebaseFunctions */,
 			);
 			productName = Vibesy;
 			productReference = 8729E1922CEF021400E15DAC /* Vibesy.app */;
@@ -237,6 +240,16 @@
 			knownRegions = (
 				en,
 				Base,
+				de,
+				ja,
+				es,
+				it,
+				pl,
+				ru,
+				fr,
+				nl,
+				pt,
+				zh,
 			);
 			mainGroup = 8729E1892CEF021400E15DAC;
 			minimizedProjectReferenceProxies = 1;
@@ -327,12 +340,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Vibesy/Vibesy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_ASSET_PATHS = "\"Vibesy/Preview Content\"";
 				DEVELOPMENT_TEAM = 358LY48YU6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Vibesy/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vibesy needs access to the camera to post content";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Vibesy uses your location to accurately track events in your area";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vibesy needs access to microphone to record audio";
@@ -344,6 +358,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -356,8 +371,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -368,12 +383,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Vibesy/Vibesy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_ASSET_PATHS = "\"Vibesy/Preview Content\"";
 				DEVELOPMENT_TEAM = 358LY48YU6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Vibesy/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vibesy needs access to the camera to post content";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Vibesy uses your location to accurately track events in your area";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vibesy needs access to microphone to record audio";
@@ -385,6 +401,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -397,8 +414,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -704,6 +721,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		87F64D152E4D48FB00E0B79D /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8729E2752CF0475100E15DAC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

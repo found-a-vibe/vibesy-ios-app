@@ -13,7 +13,7 @@ class VibesyNotificationCenter: NSObject, ObservableObject, UNUserNotificationCe
     @Published var notificationChannelId: String?
     @Published var navigateToPushNotifications: Bool?
 
-    static let shared = VibesyNotificationCenter()
+    @MainActor static let shared = VibesyNotificationCenter()
     
     private var center: UNUserNotificationCenter {
         UNUserNotificationCenter.current()

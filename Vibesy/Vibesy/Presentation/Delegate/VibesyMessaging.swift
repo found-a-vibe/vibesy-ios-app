@@ -17,7 +17,7 @@ class VibesyMessaging: NSObject, MessagingDelegate {
 
     var tokenModel = TokenModel(service: FirebaseTokenService())
     
-    static let shared = VibesyMessaging()
+    @MainActor static let shared = VibesyMessaging()
     
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         if let token = Messaging.messaging().fcmToken {

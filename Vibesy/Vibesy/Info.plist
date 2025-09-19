@@ -14,5 +14,20 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.foundavibe.vibesy.stripe</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>vibesy</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Vibesy needs camera access to scan QR codes for ticket verification.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Vibesy uses location to help you find nearby events and venues.</string>
 </dict>
 </plist>

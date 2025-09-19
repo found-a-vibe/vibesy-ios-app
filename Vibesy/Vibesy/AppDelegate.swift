@@ -18,7 +18,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
     
     var chatClient: ChatClient = {
         //For the tutorial we use a hard coded api key and application group identifier
-        var config = ChatClientConfig(apiKey: .init("6ybcm9cjc35g"))
+        var config = ChatClientConfig(apiKey: .init("82jbxje682kj"))
         config.isLocalStorageEnabled = true
 
         var colors = ColorPalette()

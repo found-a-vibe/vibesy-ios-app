@@ -7,78 +7,554 @@
 
 import Foundation
 import SwiftUI
+import os.log
 
-enum EventStatus: String, CaseIterable {
+// MARK: - Event Domain Errors
+enum EventError: LocalizedError {
+    case invalidTitle(String)
+    case invalidDescription(String)
+    case invalidDate(String)
+    case invalidTimeRange(String)
+    case invalidLocation(String)
+    case invalidCategory(String)
+    case tooManyImages(Int)
+    case tooManyGuests(Int)
+    case tooManyHashtags(Int)
+    case duplicateGuest(UUID)
+    case guestNotFound(UUID)
+    case invalidCreatorUID(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidTitle(let title):
+            return "Invalid event title: \(title). Title must be between 1-100 characters."
+        case .invalidDescription(let description):
+            return "Invalid event description: \(description). Description must be between 1-1000 characters."
+        case .invalidDate(let date):
+            return "Invalid event date: \(date). Date must be in the future."
+        case .invalidTimeRange(let time):
+            return "Invalid time range: \(time)."
+        case .invalidLocation(let location):
+            return "Invalid location: \(location). Location cannot be empty."
+        case .invalidCategory(let category):
+            return "Invalid category: \(category)."
+        case .tooManyImages(let count):
+            return "Too many images: \(count). Maximum allowed is 10."
+        case .tooManyGuests(let count):
+            return "Too many guests: \(count). Maximum allowed is 100."
+        case .tooManyHashtags(let count):
+            return "Too many hashtags: \(count). Maximum allowed is 10."
+        case .duplicateGuest(let id):
+            return "Guest with ID \(id) already exists."
+        case .guestNotFound(let id):
+            return "Guest with ID \(id) not found."
+        case .invalidCreatorUID(let uid):
+            return "Invalid creator UID: \(uid). Creator UID cannot be empty."
+        }
+    }
+}
+
+// MARK: - Event Status
+enum EventStatus: String, CaseIterable, Codable {
     case likedEvents = "likedEvents"
     case postedEvents = "postedEvents"
     case reservedEvents = "reservedEvents"
     case attendedEvents = "attendedEvents"
+    
+    var displayName: String {
+        switch self {
+        case .likedEvents: return "Liked Events"
+        case .postedEvents: return "Posted Events"
+        case .reservedEvents: return "Reserved Events"
+        case .attendedEvents: return "Attended Events"
+        }
+    }
 }
 
-struct Event: Identifiable, Hashable {
-    let id: UUID
-    var title: String
-    var description: String
-    var date: String
-    var timeRange: String
-    var location: String
-    var images: [String] = []
-    var newImages: [UIImage]? = []
-    var hashtags: [String] = []
-    var guests: [Guest] = []
-    var priceDetails: [PriceDetails] = []
-    var likes: Set<String> = []
-    var reservations: Set<String> = []
-    var interactions: Set<String> = []
-    var createdBy: String
-    var category: String?
+// MARK: - Event Category
+enum EventCategory: String, CaseIterable, Codable {
+    case music = "music"
+    case food = "food"
+    case sports = "sports"
+    case art = "art"
+    case networking = "networking"
+    case social = "social"
+    case education = "education"
+    case wellness = "wellness"
+    case nightlife = "nightlife"
+    case outdoor = "outdoor"
+    case other = "other"
+    
+    var displayName: String {
+        switch self {
+        case .music: return "Music"
+        case .food: return "Food & Dining"
+        case .sports: return "Sports"
+        case .art: return "Art & Culture"
+        case .networking: return "Networking"
+        case .social: return "Social"
+        case .education: return "Education"
+        case .wellness: return "Health & Wellness"
+        case .nightlife: return "Nightlife"
+        case .outdoor: return "Outdoor"
+        case .other: return "Other"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .music: return "music.note"
+        case .food: return "fork.knife"
+        case .sports: return "sportscourt"
+        case .art: return "paintpalette"
+        case .networking: return "person.3"
+        case .social: return "heart"
+        case .education: return "book"
+        case .wellness: return "leaf"
+        case .nightlife: return "moon.stars"
+        case .outdoor: return "mountain.2"
+        case .other: return "ellipsis.circle"
+        }
+    }
+}
 
-    mutating func addImage(_ image: UIImage) {
-        newImages?.append(image)
+// MARK: - Enhanced Event Model
+struct Event: Identifiable, Hashable, Codable {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "Event")
+    
+    // MARK: - Constants
+    private static let maxTitleLength = 100
+    private static let maxDescriptionLength = 1000
+    private static let maxImages = 10
+    private static let maxGuests = 100
+    private static let maxHashtags = 10
+    
+    // MARK: - Core Properties
+    let id: UUID
+    private var _title: String = ""
+    private var _description: String = ""
+    private var _date: String = ""
+    private var _timeRange: String = ""
+    private var _location: String = ""
+    private var _category: EventCategory?
+    
+    // MARK: - Media and Content
+    private(set) var images: [String] = []
+    private(set) var newImages: [UIImage] = []
+    private var _hashtags: [String] = []
+    private var _guests: [Guest] = []
+    private(set) var priceDetails: [PriceDetails] = []
+    
+    // MARK: - Interactions
+    private(set) var likes: Set<String> = []
+    private(set) var reservations: Set<String> = []
+    private(set) var interactions: Set<String> = []
+    
+    // MARK: - Metadata
+    private(set) var createdBy: String
+    private(set) var createdAt: Date = Date()
+    private(set) var updatedAt: Date = Date()
+    
+    // MARK: - Computed Properties
+    var isComplete: Bool {
+        !_title.isEmpty && !_description.isEmpty && !_date.isEmpty && 
+        !_timeRange.isEmpty && !_location.isEmpty && !createdBy.isEmpty
+    }
+    
+    var likeCount: Int { likes.count }
+    var reservationCount: Int { reservations.count }
+    var interactionCount: Int { interactions.count }
+    var guestCount: Int { _guests.count }
+    var hashtagCount: Int { _hashtags.count }
+    
+    // MARK: - Initializer
+    init(id: UUID = UUID(),
+         title: String = "",
+         description: String = "",
+         date: String = "",
+         timeRange: String = "",
+         location: String = "",
+         category: EventCategory? = nil,
+         createdBy: String) throws {
+        
+        guard !createdBy.isEmpty else {
+            throw EventError.invalidCreatorUID(createdBy)
+        }
+        
+        self.id = id
+        self.createdBy = createdBy
+        
+        // Set properties with validation
+        try setTitle(title)
+        try setDescription(description)
+        try setDate(date)
+        try setTimeRange(timeRange)
+        try setLocation(location)
+        self._category = category
+    }
+    
+    // MARK: - Property Setters with Validation
+    var title: String {
+        get { _title }
+        set {
+            do {
+                try setTitle(newValue)
+            } catch {
+                Self.logger.error("Failed to set title: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setTitle(_ title: String) throws {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty && trimmed.count <= Self.maxTitleLength else {
+            throw EventError.invalidTitle(title)
+        }
+        _title = trimmed
+        updateTimestamp()
+    }
+    
+    var description: String {
+        get { _description }
+        set {
+            do {
+                try setDescription(newValue)
+            } catch {
+                Self.logger.error("Failed to set description: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setDescription(_ description: String) throws {
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty && trimmed.count <= Self.maxDescriptionLength else {
+            throw EventError.invalidDescription(description)
+        }
+        _description = trimmed
+        updateTimestamp()
+    }
+    
+    var date: String {
+        get { _date }
+        set {
+            do {
+                try setDate(newValue)
+            } catch {
+                Self.logger.error("Failed to set date: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setDate(_ date: String) throws {
+        let trimmed = date.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw EventError.invalidDate(date)
+        }
+        _date = trimmed
+        updateTimestamp()
+    }
+    
+    var timeRange: String {
+        get { _timeRange }
+        set {
+            do {
+                try setTimeRange(newValue)
+            } catch {
+                Self.logger.error("Failed to set time range: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setTimeRange(_ timeRange: String) throws {
+        let trimmed = timeRange.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw EventError.invalidTimeRange(timeRange)
+        }
+        _timeRange = trimmed
+        updateTimestamp()
+    }
+    
+    var location: String {
+        get { _location }
+        set {
+            do {
+                try setLocation(newValue)
+            } catch {
+                Self.logger.error("Failed to set location: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setLocation(_ location: String) throws {
+        let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw EventError.invalidLocation(location)
+        }
+        _location = trimmed
+        updateTimestamp()
+    }
+    
+    var category: EventCategory? {
+        get { _category }
+        set {
+            _category = newValue
+            updateTimestamp()
+        }
+    }
+    
+    // MARK: - Image Management
+    mutating func addImage(_ image: UIImage) throws {
+        guard newImages.count < Self.maxImages else {
+            throw EventError.tooManyImages(newImages.count + 1)
+        }
+        newImages.append(image)
+        updateTimestamp()
     }
     
     mutating func removeImage(_ image: UIImage) {
-        newImages?.removeAll { $0 == image }
+        newImages.removeAll { $0 == image }
+        updateTimestamp()
     }
     
-    func getImages() -> [String] {
-        return images
+    mutating func addImageURL(_ url: String) throws {
+        guard images.count < Self.maxImages else {
+            throw EventError.tooManyImages(images.count + 1)
+        }
+        guard !images.contains(url) else { return }
+        images.append(url)
+        updateTimestamp()
     }
     
-    mutating func addHashtag(_ hashtag: String) {
-        hashtags.append(hashtag)
+    mutating func removeImageURL(_ url: String) {
+        images.removeAll { $0 == url }
+        updateTimestamp()
+    }
+    
+    // MARK: - Hashtag Management
+    var hashtags: [String] {
+        get { _hashtags }
+        set {
+            do {
+                try setHashtags(newValue)
+            } catch {
+                Self.logger.error("Failed to set hashtags: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private mutating func setHashtags(_ hashtags: [String]) throws {
+        guard hashtags.count <= Self.maxHashtags else {
+            throw EventError.tooManyHashtags(hashtags.count)
+        }
+        
+        let cleanHashtags = hashtags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { hashtag in
+                hashtag.hasPrefix("#") ? hashtag : "#\(hashtag)"
+            }
+        
+        _hashtags = Array(Set(cleanHashtags)) // Remove duplicates
+        updateTimestamp()
+    }
+    
+    mutating func addHashtag(_ hashtag: String) throws {
+        guard _hashtags.count < Self.maxHashtags else {
+            throw EventError.tooManyHashtags(_hashtags.count + 1)
+        }
+        
+        let cleanHashtag = hashtag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let formattedHashtag = cleanHashtag.hasPrefix("#") ? cleanHashtag : "#\(cleanHashtag)"
+        
+        if !_hashtags.contains(formattedHashtag) {
+            _hashtags.append(formattedHashtag)
+            updateTimestamp()
+        }
     }
     
     mutating func removeHashtag(_ hashtag: String) {
-        hashtags.removeAll { $0 == hashtag }
+        _hashtags.removeAll { $0 == hashtag }
+        updateTimestamp()
     }
     
-    func getHashtags() -> [String] {
-        return hashtags
+    // MARK: - Guest Management
+    var guests: [Guest] {
+        get { _guests }
     }
     
-    mutating func addGuest(_ guest: Guest) {
-        guests.append(guest)
+    mutating func addGuest(_ guest: Guest) throws {
+        guard _guests.count < Self.maxGuests else {
+            throw EventError.tooManyGuests(_guests.count + 1)
+        }
+        
+        guard !_guests.contains(where: { $0.id == guest.id }) else {
+            throw EventError.duplicateGuest(guest.id)
+        }
+        
+        _guests.append(guest)
+        updateTimestamp()
     }
     
-    mutating func removeGuest(byId id: UUID) {
-        guests.removeAll { $0.id == id }
+    mutating func removeGuest(byId id: UUID) throws {
+        guard let index = _guests.firstIndex(where: { $0.id == id }) else {
+            throw EventError.guestNotFound(id)
+        }
+        _guests.remove(at: index)
+        updateTimestamp()
     }
     
-    func getGuests() -> [Guest] {
-        return guests
+    mutating func updateGuest(_ guest: Guest) throws {
+        guard let index = _guests.firstIndex(where: { $0.id == guest.id }) else {
+            throw EventError.guestNotFound(guest.id)
+        }
+        _guests[index] = guest
+        updateTimestamp()
     }
     
-    func getLikes() -> Set<String> {
-        return likes
+    // MARK: - Price Details Management
+    mutating func addPriceDetail(_ detail: PriceDetails) {
+        priceDetails.append(detail)
+        updateTimestamp()
     }
     
-    func getReservations() -> Set<String> {
-        return reservations
+    mutating func removePriceDetail(withTitle title: String) {
+        priceDetails.removeAll { $0.title == title }
+        updateTimestamp()
     }
     
-    func getInteractions() -> Set<String> {
-        return interactions
+    mutating func updatePriceDetails(_ details: [PriceDetails]) {
+        priceDetails = details
+        updateTimestamp()
+    }
+    
+    // MARK: - Interaction Management
+    mutating func addLike(from userID: String) {
+        likes.insert(userID)
+        updateTimestamp()
+    }
+    
+    mutating func removeLike(from userID: String) {
+        likes.remove(userID)
+        updateTimestamp()
+    }
+    
+    mutating func addReservation(from userID: String) {
+        reservations.insert(userID)
+        updateTimestamp()
+    }
+    
+    mutating func removeReservation(from userID: String) {
+        reservations.remove(userID)
+        updateTimestamp()
+    }
+    
+    mutating func addInteraction(from userID: String) {
+        interactions.insert(userID)
+        updateTimestamp()
+    }
+    
+    mutating func removeInteraction(from userID: String) {
+        interactions.remove(userID)
+        updateTimestamp()
+    }
+    
+    // MARK: - Query Methods
+    func isLikedBy(_ userID: String) -> Bool {
+        likes.contains(userID)
+    }
+    
+    func isReservedBy(_ userID: String) -> Bool {
+        reservations.contains(userID)
+    }
+    
+    func hasInteractionFrom(_ userID: String) -> Bool {
+        interactions.contains(userID)
+    }
+    
+    func isCreatedBy(_ userID: String) -> Bool {
+        createdBy == userID
+    }
+    
+    // MARK: - Validation
+    func validate() throws {
+        if _title.isEmpty || _title.count > Self.maxTitleLength {
+            throw EventError.invalidTitle(_title)
+        }
+        
+        if _description.isEmpty || _description.count > Self.maxDescriptionLength {
+            throw EventError.invalidDescription(_description)
+        }
+        
+        if _date.isEmpty {
+            throw EventError.invalidDate(_date)
+        }
+        
+        if _timeRange.isEmpty {
+            throw EventError.invalidTimeRange(_timeRange)
+        }
+        
+        if _location.isEmpty {
+            throw EventError.invalidLocation(_location)
+        }
+        
+        if createdBy.isEmpty {
+            throw EventError.invalidCreatorUID(createdBy)
+        }
+        
+        if images.count + newImages.count > Self.maxImages {
+            throw EventError.tooManyImages(images.count + newImages.count)
+        }
+        
+        if _guests.count > Self.maxGuests {
+            throw EventError.tooManyGuests(_guests.count)
+        }
+        
+        if _hashtags.count > Self.maxHashtags {
+            throw EventError.tooManyHashtags(_hashtags.count)
+        }
+    }
+    
+    // MARK: - Private Methods
+    private mutating func updateTimestamp() {
+        updatedAt = Date()
+    }
+    
+    // MARK: - Hashable (Excluding newImages as UIImage is not Hashable)
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(_title)
+        hasher.combine(_description)
+        hasher.combine(_date)
+        hasher.combine(_timeRange)
+        hasher.combine(_location)
+        hasher.combine(_category)
+        hasher.combine(images)
+        hasher.combine(_hashtags)
+        hasher.combine(_guests)
+        hasher.combine(priceDetails)
+        hasher.combine(likes)
+        hasher.combine(reservations)
+        hasher.combine(interactions)
+        hasher.combine(createdBy)
+    }
+    
+    // MARK: - Equatable (Excluding newImages)
+    static func == (lhs: Event, rhs: Event) -> Bool {
+        return lhs.id == rhs.id &&
+        lhs._title == rhs._title &&
+        lhs._description == rhs._description &&
+        lhs._date == rhs._date &&
+        lhs._timeRange == rhs._timeRange &&
+        lhs._location == rhs._location &&
+        lhs._category == rhs._category &&
+        lhs.images == rhs.images &&
+        lhs._hashtags == rhs._hashtags &&
+        lhs._guests == rhs._guests &&
+        lhs.priceDetails == rhs.priceDetails &&
+        lhs.likes == rhs.likes &&
+        lhs.reservations == rhs.reservations &&
+        lhs.interactions == rhs.interactions &&
+        lhs.createdBy == rhs.createdBy
     }
 }
 

@@ -33,7 +33,11 @@ struct ContentView: View {
                 MainView()
                     .task {
                         if let user = authenticationModel.state.currentUser {
-                            userProfileModel.getUserProfile(userId: user.id)
+                            userProfileModel.getUserProfile(userId: user.id) { status in
+                                if status == "success" {
+                                    authenticationModel.connectUser(username: userProfileModel.userProfile.fullName, photoUrl: userProfileModel.userProfile.profileImageUrl)
+                                }
+                            }
                             eventModel.fetchEventFeed(uid: user.id)
                             notificationCenter.registerForPushNotifications()
                         }

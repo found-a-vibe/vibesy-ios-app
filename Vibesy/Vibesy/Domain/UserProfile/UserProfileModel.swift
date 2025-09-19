@@ -9,8 +9,9 @@ import Combine
 import Foundation
 import SwiftUI
 
+@MainActor
 class UserProfileModel: ObservableObject {
-    var userProfile: UserProfile = UserProfile()
+    @Published var userProfile: UserProfile = UserProfile()
     var errorMessage: String? // To handle and show errors in UI
     var status: String? = "Profile not fetched"
     @Published var matchedProfiles: [UserProfile] = []
@@ -24,14 +25,14 @@ class UserProfileModel: ObservableObject {
     }
     
     /// Fetches the user profile and updates `userProfile` and `userProfileImage`.
-    func getUserProfile(userId: String) {
+    func getUserProfile(userId: String, completion: @escaping (String) -> Void) {
         userProfileService.getUserProfile(userId: userId) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let (fetchedUserProfile)):
-                    self?.userProfile = fetchedUserProfile
-                    self?.status = "Profile fetched"
-                    self?.errorMessage = nil // Clear any previous errors
+                        self?.userProfile = fetchedUserProfile
+                        self?.errorMessage = nil // Clear any previous errors
+                    completion("success")
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }

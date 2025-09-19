@@ -7,101 +7,221 @@
 
 import SwiftUI
 import StreamChatSwiftUI
+import os.log
 
+// MARK: - Tab Item Configuration
+struct TabItemConfig {
+    let imageName: String
+    let title: String
+    let accessibilityLabel: String
+    let accessibilityHint: String
+}
+
+// MARK: - Main View
 struct MainView: View {
-    @SwiftUI.Environment(\.scenePhase) private var scenePhase
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "MainView")
     
+    // MARK: - Environment
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorScheme) private var colorScheme
+    
+    // MARK: - Environment Objects
     @EnvironmentObject var authenticationModel: AuthenticationModel
     @EnvironmentObject var userProfileModel: UserProfileModel
     @EnvironmentObject var eventModel: EventModel
     @EnvironmentObject var friendshipModel: FriendshipModel
     @EnvironmentObject private var tabBarVisibilityModel: TabBarVisibilityModel
-
     
+    // MARK: - State
     @State private var selectedTab = 0
-    @State private var isFullScreenPresented: Bool = false
-    
-    @StateObject private var chatModel: ChatModel = ChatModel()
-    
     @State private var isNewEventViewPresented: Bool = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
+    @State private var isAppearingForFirstTime = true
     
+    // MARK: - Tab Configuration
+    private let tabConfigs: [TabItemConfig] = [
+        TabItemConfig(
+            imageName: "Home",
+            title: "Explore",
+            accessibilityLabel: "Explore events",
+            accessibilityHint: "Browse and discover events in your area"
+        ),
+        TabItemConfig(
+            imageName: "Messenger",
+            title: "Chat",
+            accessibilityLabel: "Messages",
+            accessibilityHint: "View your conversations and chat with other users"
+        ),
+        TabItemConfig(
+            imageName: "Plus",
+            title: "Create",
+            accessibilityLabel: "Create event",
+            accessibilityHint: "Create a new event"
+        ),
+        TabItemConfig(
+            imageName: "Heart",
+            title: "Liked",
+            accessibilityLabel: "Liked events",
+            accessibilityHint: "View events you have liked"
+        ),
+        TabItemConfig(
+            imageName: "Account",
+            title: "Account",
+            accessibilityLabel: "Account settings",
+            accessibilityHint: "Manage your profile and account settings"
+        )
+    ]
+    
+    // MARK: - Initialization
     init() {
+        setupTabBarAppearance()
+        Self.logger.info("MainView initialized")
+    }
+    
+    // MARK: - Private Methods
+    private func setupTabBarAppearance() {
         let appearance = UITabBarAppearance()
         
-        // Customize unselected tab item appearance (white color for unselected items)
+        // Configure normal state
         appearance.stackedLayoutAppearance.normal.iconColor = UIColor.white
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
         
-        // Customize selected tab item appearance (pink color for selected items)
+        // Configure selected state
         appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor(Color(.espresso))]
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
         
-        // Set background color of the tab bar to blue
+        // Set background
         appearance.backgroundColor = UIColor(Color(.sandstone))
+        appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         
-        // Apply these changes to the tab bar appearance
+        // Apply to tab bar
         UITabBar.appearance().standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            UITabBar.appearance().scrollEdgeAppearance = appearance
-        }
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
     
     private func checkNotificationChannel() {
-        if VibesyNotificationCenter.shared.notificationChannelId != nil {
-            selectedTab = 1
+        Task { @MainActor in
+            if VibesyNotificationCenter.shared.notificationChannelId != nil {
+                selectedTab = 1
+                Self.logger.debug("Navigated to chat due to notification")
+            }
         }
     }
     
+    private func handleNewEventTab() {
+        guard selectedTab == 2 else { return }
+        
+        selectedTab = 0 // Reset to explore tab
+        
+        // Add haptic feedback for better UX
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        isNewEventViewPresented = true
+        Self.logger.debug("New event view presented")
+    }
+    
+    private func handleEventCountChange(oldValue: Int, newValue: Int) {
+        if newValue > oldValue {
+            isNewEventViewPresented = false
+            
+            // Show success feedback
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.success)
+            
+            Self.logger.info("Event created successfully, dismissing new event view")
+        }
+    }
+    
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            if !isAppearingForFirstTime {
+                checkNotificationChannel()
+            }
+            isAppearingForFirstTime = false
+            Self.logger.debug("App became active")
+            
+        case .inactive:
+            Self.logger.debug("App became inactive")
+            
+        case .background:
+            Self.logger.debug("App entered background")
+            
+        @unknown default:
+            Self.logger.warning("Unknown scene phase: \(newPhase)")
+        }
+    }
+    
+    private func showError(_ message: String) {
+        errorMessage = message
+        showErrorAlert = true
+        Self.logger.error("Showing error: \(message)")
+    }
+    // MARK: - Body
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
+                // Explore Tab
                 ExploreViewCoordinator()
                     .tabItem {
-                        Image("Home")
-                            .renderingMode(.template)
+                        tabItemView(for: 0)
                     }
                     .tag(0)
+                
+                // Chat Tab
                 ChatViewCoordinator()
                     .tabItem {
-                        Image("Messenger")
-                            .renderingMode(.template)
+                        tabItemView(for: 1)
                     }
                     .tag(1)
+                
+                // Create Event Tab (Placeholder)
                 NewEventViewCoordinator()
                     .tabItem {
-                        Image("Plus")
-                            .renderingMode(.template)
-                    }
-                    .onChange(of: selectedTab) { oldTab, newTab in
-                        if newTab == 2 {
-                            selectedTab = 0 // Reset to a different tab after showing the full-screen cover
-                            isNewEventViewPresented = true
-                        }
+                        tabItemView(for: 2)
                     }
                     .tag(2)
                 
+                // Liked Events Tab
                 LikedEventsViewCoordinator()
                     .tabItem {
-                        Image("Heart")
-                            .renderingMode(.template)
+                        tabItemView(for: 3)
                     }
                     .tag(3)
                 
+                // Account Tab
                 AccountViewCoordinator()
                     .tabItem {
-                        Image("Account")
-                            .renderingMode(.template)
+                        tabItemView(for: 4)
                     }
                     .tag(4)
             }
             .tint(.sandstone)
-            // Overlay TabIndicator at the bottom of the screen
+            .onChange(of: selectedTab) { oldTab, newTab in
+                handleNewEventTab()
+            }
+            
+            // Custom Tab Indicator
             if tabBarVisibilityModel.isTabBarVisible {
                 VStack {
                     Spacer()
-                    TabIndicator(selectedTab: $selectedTab)
-                        .frame(height: 4)
-                        .padding(.bottom, 45)
+                    TabIndicator(
+                        selectedTab: $selectedTab,
+                        reduceMotion: reduceMotion,
+                        differentiateWithoutColor: differentiateWithoutColor
+                    )
+                    .frame(height: 4)
+                    .padding(.bottom, 45)
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             }
@@ -112,50 +232,138 @@ struct MainView: View {
         .fullScreenCover(isPresented: $isNewEventViewPresented) {
             NavigationStack {
                 NewEventView0(isNewEventViewPresented: $isNewEventViewPresented)
+                    .accessibilityAddTraits(.isModal)
+                    .accessibilityLabel("Create new event")
             }
         }
-        .onChange(of: eventModel.events.count) { oldValue, newValue in
-            if newValue > oldValue {
-                isNewEventViewPresented = false
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .onChange(of: eventModel.events.count, handleEventCountChange)
+        .onChange(of: scenePhase, handleScenePhaseChange)
+        .onChange(of: eventModel.errorMessage) { _, newError in
+            if let error = newError {
+                showError(error)
             }
         }
-        .onChange(of: userProfileModel.userProfile) { oldValue, newValue in
-            if let currentUser = authenticationModel.state.currentUser {
-                if let profileImageUrl = URL(string: userProfileModel.userProfile.profileImageUrl) {
-                    chatModel.connectUser(userId: currentUser.id, name: userProfileModel.userProfile.fullName, imageURL: profileImageUrl)
-                } else {
-                    chatModel.connectUser(userId: currentUser.id, name: userProfileModel.userProfile.fullName, imageURL: nil)
-                }
+        .onAppear {
+            Self.logger.debug("MainView appeared")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Main navigation")
+    }
+    
+    // MARK: - Helper Views
+    @ViewBuilder
+    private func tabItemView(for index: Int) -> some View {
+        guard index < tabConfigs.count else {
+            EmptyView()
+            return
+        }
+        
+        let config = tabConfigs[index]
+        
+        VStack {
+            Image(config.imageName)
+                .renderingMode(.template)
+                .accessibilityHidden(true)
+            
+            if !differentiateWithoutColor || selectedTab == index {
+                Text(config.title)
+                    .font(.caption2)
+                    .accessibilityHidden(true)
             }
         }
-        .onChange(of: scenePhase) {_, newPhase in
-            if newPhase == .active {
-                checkNotificationChannel()
-            }
-        }
+        .accessibilityLabel(config.accessibilityLabel)
+        .accessibilityHint(config.accessibilityHint)
+        .accessibilityAddTraits(selectedTab == index ? .isSelected : [])
     }
 }
 
+// MARK: - Tab Indicator
 struct TabIndicator: View {
     @Binding var selectedTab: Int
+    let reduceMotion: Bool
+    let differentiateWithoutColor: Bool
+    
     private let indicatorWidth: CGFloat = 36
+    private let tabCount: CGFloat = 5
     
     var body: some View {
         GeometryReader { geometry in
-            let width = geometry.size.width / 5
+            let width = geometry.size.width / tabCount
             let offset = (CGFloat(selectedTab) * width) + (width - indicatorWidth) / 2
             
             Rectangle()
-                .fill(Color(.espresso))
+                .fill(indicatorColor)
                 .frame(width: indicatorWidth, height: 4)
                 .offset(x: offset, y: 0)
-                .animation(.easeInOut(duration: 0.3), value: selectedTab)
+                .animation(
+                    reduceMotion ? .none : .easeInOut(duration: 0.3),
+                    value: selectedTab
+                )
+                .accessibilityHidden(true) // Hidden since tab items already provide accessibility
         }
         .frame(height: 4)
-        
+        .clipped()
+    }
+    
+    private var indicatorColor: Color {
+        if differentiateWithoutColor {
+            return Color.primary
+        } else {
+            return Color(.espresso)
+        }
     }
 }
 
+// MARK: - Preview
 #Preview {
     MainView()
+        .environmentObject(AuthenticationModel(authenticationService: MockAuthenticationService(), state: AppState()))
+        .environmentObject(UserProfileModel.mockUserProfileModel)
+        .environmentObject(EventModel(service: MockEventService()))
+        .environmentObject(FriendshipModel(service: MockFriendshipService(), friendRequests: []))
+        .environmentObject(TabBarVisibilityModel())
+}
+
+// MARK: - Mock Services for Preview
+struct MockAuthenticationService: AuthenticationService {
+    func signUp(email: String, password: String) -> AnyPublisher<AuthUser?, Error> {
+        Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+    }
+    
+    func signIn(email: String, password: String) -> AnyPublisher<AuthUser?, Error> {
+        Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+    }
+    
+    func signOut() -> AnyPublisher<Void, Never> {
+        Just(()).eraseToAnyPublisher()
+    }
+    
+    func updateCurrentUserPassword(email: String, password: String, newPassword: String) -> AnyPublisher<Void, Error> {
+        Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+    }
+    
+    func deleteCurrentUser(email: String, password: String) -> AnyPublisher<Void, Error> {
+        Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+    }
+}
+
+struct MockEventService: EventService {
+    func getEventFeed(uid: String) async throws -> [Event] { [] }
+    func createOrUpdateEvent(_ event: Event) async throws -> Event { event }
+    func deleteEvent(eventId: String, createdByUid: String) async throws {}
+    func getEventsByStatus(uid: String, status: EventStatus) async throws -> [Event] { [] }
+    func likeEvent(eventId: String, userID: String) async throws {}
+    func unlikeEvent(eventId: String, userID: String) async throws {}
+}
+
+struct MockFriendshipService: FriendshipService {
+    func sendFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
+    func acceptFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
+    func declineFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
+    func getFriendRequests(for userId: String, completion: @escaping (Result<[String], Error>) -> Void) {}
 }

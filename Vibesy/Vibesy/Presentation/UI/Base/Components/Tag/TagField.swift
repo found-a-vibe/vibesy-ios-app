@@ -88,7 +88,7 @@ public struct TagField : View{
         
     }
     func appendNewTag() {
-        var tag = newTag
+        var tag = newTag.aa_profanityFiltered()
         if(!isBlank(tag: tag)) {
             if(tag.last == " ") {
                 tag.removeLast()

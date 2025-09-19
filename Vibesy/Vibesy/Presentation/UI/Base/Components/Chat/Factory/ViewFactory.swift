@@ -8,7 +8,8 @@
 import SwiftUI
 import StreamChatSwiftUI
 
-class CustomFactory: ViewFactory {
+@MainActor
+class CustomFactory: @preconcurrency ViewFactory {
     @Injected(\.chatClient) public var chatClient
     private init() {}
     public static let shared = CustomFactory()
@@ -18,20 +19,7 @@ class CustomFactory: ViewFactory {
     }
     
     func makeNoChannelsView() -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "message")
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 120)
-                .foregroundStyle(.espresso)
-            Text("Ready to Connect?")
-                .font(.abeezee(size: 24))
-                .bold()
-            Text("Stay tuned, you’ll be able to slide in someone’s dms soon!")
-                .multilineTextAlignment(.center)
-                .font(.subheadline)
-        }
-        .padding()
+        return NoContentView(image: UIImage(systemName: "message")!, title: "Let's start chatting", description: "Send your first message to a friend today!")
     }
 }
 

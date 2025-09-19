@@ -135,28 +135,14 @@ struct SignInView: View {
                         .buttonBorderShape(.roundedRectangle(radius: 8))
                         .tint(.espresso)
                         .padding(.vertical)
-                        
-                        //                    HStack {
-                        //                        Divider().frame(width: 50, height: 1).background(.white)
-                        //                        Text("Or Continue With")
-                        //                            .font(.custom("ABeeZee-Regular", size: 16))
-                        //                            .foregroundStyle(.white)
-                        //                        Divider().frame(width: 50, height: 1).background(.white)
-                        //                    }
-                        //                    .frame(maxWidth: .infinity, alignment: .center)
-                        //                    .padding(.vertical)
-                        //                    HStack(spacing: 16) {
-                        //                        Image("SIWFB")
-                        //                        Image("SIWA")
-                        //                        Image("SIWG")
-                        //                    }
+
                         HStack {
                             Text("Don't have and account?")
                             Button(action: {
                                 isSignIn.toggle()
                             }) {
                                 Text("Sign Up")
-                                    .foregroundStyle(.sandstone)
+                                    .foregroundStyle(.espresso)
                                     .underline()
                             }
                         }

@@ -6,11 +6,247 @@
 //
 import Foundation
 import SwiftUI
+import os.log
 
-struct Guest: Hashable {
+// MARK: - Guest Domain Errors
+enum GuestError: LocalizedError {
+    case invalidName(String)
+    case invalidRole(String)
+    case invalidImageURL(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidName(let name):
+            return "Invalid guest name: \(name). Name cannot be empty and must be less than 100 characters."
+        case .invalidRole(let role):
+            return "Invalid guest role: \(role). Role cannot be empty and must be less than 50 characters."
+        case .invalidImageURL(let url):
+            return "Invalid image URL: \(url)."
+        }
+    }
+}
+
+// MARK: - Guest Role Enum
+enum GuestRole: String, CaseIterable, Codable {
+    case host = "host"
+    case speaker = "speaker"
+    case performer = "performer"
+    case organizer = "organizer"
+    case sponsor = "sponsor"
+    case attendee = "attendee"
+    case vip = "vip"
+    case staff = "staff"
+    case volunteer = "volunteer"
+    case other = "other"
+    
+    var displayName: String {
+        switch self {
+        case .host: return "Host"
+        case .speaker: return "Speaker"
+        case .performer: return "Performer"
+        case .organizer: return "Organizer"
+        case .sponsor: return "Sponsor"
+        case .attendee: return "Attendee"
+        case .vip: return "VIP"
+        case .staff: return "Staff"
+        case .volunteer: return "Volunteer"
+        case .other: return "Other"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .host: return "person.crop.circle.fill"
+        case .speaker: return "mic.fill"
+        case .performer: return "theatermasks.fill"
+        case .organizer: return "person.2.badge.gearshape.fill"
+        case .sponsor: return "dollarsign.circle.fill"
+        case .attendee: return "person.fill"
+        case .vip: return "star.fill"
+        case .staff: return "person.badge.key.fill"
+        case .volunteer: return "hands.and.sparkles.fill"
+        case .other: return "person.circle"
+        }
+    }
+}
+
+// MARK: - Enhanced Guest Model
+struct Guest: Hashable, Codable, Identifiable {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "Guest")
+    
+    // MARK: - Constants
+    private static let maxNameLength = 100
+    private static let maxRoleLength = 50
+    
+    // MARK: - Properties
     let id: UUID
-    let name: String
-    let role: String
-    let image: UIImage?
-    var imageUrl: String?
+    private var _name: String
+    private var _role: GuestRole
+    private(set) var customRole: String?
+    private(set) var imageUrl: String?
+    private(set) var bio: String?
+    private(set) var socialLinks: [String: String] = [:]
+    private(set) var createdAt: Date = Date()
+    private(set) var updatedAt: Date = Date()
+    
+    // MARK: - Computed Properties
+    var name: String {
+        get { _name }
+        set {
+            do {
+                try setName(newValue)
+            } catch {
+                Self.logger.error("Failed to set guest name: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    var role: GuestRole {
+        get { _role }
+        set {
+            _role = newValue
+            updateTimestamp()
+        }
+    }
+    
+    var displayRole: String {
+        if _role == .other, let customRole = customRole, !customRole.isEmpty {
+            return customRole
+        }
+        return _role.displayName
+    }
+    
+    var roleIcon: String {
+        _role.icon
+    }
+    
+    var hasValidImageURL: Bool {
+        guard let url = imageUrl, !url.isEmpty else { return false }
+        return URL(string: url) != nil
+    }
+    
+    // MARK: - Initializer
+    init(id: UUID = UUID(),
+         name: String,
+         role: GuestRole = .attendee,
+         customRole: String? = nil,
+         imageUrl: String? = nil,
+         bio: String? = nil,
+         socialLinks: [String: String] = [:]) throws {
+        
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+              name.count <= Self.maxNameLength else {
+            throw GuestError.invalidName(name)
+        }
+        
+        self.id = id
+        self._name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        self._role = role
+        self.customRole = customRole?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.imageUrl = imageUrl
+        self.bio = bio?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.socialLinks = socialLinks
+    }
+    
+    // MARK: - Mutating Methods
+    private mutating func setName(_ name: String) throws {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty && trimmed.count <= Self.maxNameLength else {
+            throw GuestError.invalidName(name)
+        }
+        _name = trimmed
+        updateTimestamp()
+    }
+    
+    mutating func setCustomRole(_ role: String?) {
+        if let role = role {
+            let trimmed = role.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.customRole = trimmed.isEmpty ? nil : trimmed
+        } else {
+            self.customRole = nil
+        }
+        updateTimestamp()
+    }
+    
+    mutating func updateImageURL(_ url: String?) throws {
+        if let url = url, !url.isEmpty {
+            guard URL(string: url) != nil else {
+                throw GuestError.invalidImageURL(url)
+            }
+            self.imageUrl = url
+        } else {
+            self.imageUrl = nil
+        }
+        updateTimestamp()
+    }
+    
+    mutating func updateBio(_ bio: String?) {
+        self.bio = bio?.trimmingCharacters(in: .whitespacesAndNewlines)
+        updateTimestamp()
+    }
+    
+    mutating func addSocialLink(platform: String, url: String) {
+        guard !platform.isEmpty, !url.isEmpty, URL(string: url) != nil else { return }
+        socialLinks[platform] = url
+        updateTimestamp()
+    }
+    
+    mutating func removeSocialLink(platform: String) {
+        socialLinks.removeValue(forKey: platform)
+        updateTimestamp()
+    }
+    
+    mutating func updateSocialLinks(_ links: [String: String]) {
+        // Validate all URLs
+        let validLinks = links.compactMapValues { url in
+            URL(string: url) != nil ? url : nil
+        }
+        self.socialLinks = validLinks
+        updateTimestamp()
+    }
+    
+    // MARK: - Validation
+    func validate() throws {
+        if _name.isEmpty || _name.count > Self.maxNameLength {
+            throw GuestError.invalidName(_name)
+        }
+        
+        if let imageUrl = imageUrl, !imageUrl.isEmpty, URL(string: imageUrl) == nil {
+            throw GuestError.invalidImageURL(imageUrl)
+        }
+        
+        // Validate social links
+        for (_, url) in socialLinks {
+            if URL(string: url) == nil {
+                throw GuestError.invalidImageURL(url)
+            }
+        }
+    }
+    
+    // MARK: - Private Methods
+    private mutating func updateTimestamp() {
+        updatedAt = Date()
+    }
+    
+    // MARK: - Hashable
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(_name)
+        hasher.combine(_role)
+        hasher.combine(customRole)
+        hasher.combine(imageUrl)
+        hasher.combine(bio)
+        hasher.combine(socialLinks)
+    }
+    
+    // MARK: - Equatable
+    static func == (lhs: Guest, rhs: Guest) -> Bool {
+        return lhs.id == rhs.id &&
+        lhs._name == rhs._name &&
+        lhs._role == rhs._role &&
+        lhs.customRole == rhs.customRole &&
+        lhs.imageUrl == rhs.imageUrl &&
+        lhs.bio == rhs.bio &&
+        lhs.socialLinks == rhs.socialLinks
+    }
 }

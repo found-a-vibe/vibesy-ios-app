@@ -30,7 +30,6 @@ public struct CustomChannelHeader: ToolbarContent {
                 isNewChatShown = true
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .resizable()
                     .foregroundStyle(.sandstone)
             }
         }

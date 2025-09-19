@@ -11,6 +11,8 @@ import PhotosUI
 struct NewEventView1: View {
     @SwiftUI.Environment(\.dismiss) var dismiss
     @EnvironmentObject var eventModel: EventModel
+    @EnvironmentObject var authenticationModel: AuthenticationModel
+    @StateObject private var stripeStatusManager = StripeStatusManager.shared
     
     // Event Images
     @State private var selectedEventImages: [PhotosPickerItem] = []
@@ -28,6 +30,8 @@ struct NewEventView1: View {
     @State private var speakerRole: String = ""
     @State private var showAlert: Bool = false
     @State private var alertMessage: (String, String) = ("", "")
+    
+    @State private var innapropriateImageAlert: Bool = false
     
     @Binding var isNewEventViewPresented: Bool
     
@@ -58,22 +62,39 @@ struct NewEventView1: View {
                 
                 // Post Button
                 Button(action: {
-                    // Post event logic here
-                    if eventImages.count < 1 {
-                        alertMessage = ("Event Image Required!", "Please upload at least one image of your event.")
-                        showAlert.toggle()
-                    } else {
-                        eventImages.forEach { image in
-                            eventModel.newEvent?.newImages?.append(image)
+                    Task {
+                        // Check if event has pricing
+                        let hasPricing = !prices.isEmpty
+                        
+                        if hasPricing {
+                            // Validate Stripe onboarding for paid events
+                            let isOnboarded = await validateStripeOnboarding()
+                            if !isOnboarded {
+                                alertMessage = ("Stripe Setup Required", "To charge for events, you need to complete payment setup in Account Settings under Host Settings.")
+                                showAlert.toggle()
+                                return
+                            }
                         }
-                        guestSpeakers.forEach { speaker in
-                            eventModel.newEvent?.guests.append(speaker)
+                        
+                        // Existing validation and posting logic
+                        if eventImages.count < 1 {
+                            alertMessage = ("Event Image Required!", "Please upload at least one image of your event.")
+                            showAlert.toggle()
+                        } else {
+                            eventImages.forEach { image in
+                                eventModel.newEvent?.newImages?.append(image)
+                            }
+                            guestSpeakers.forEach { speaker in
+                                eventModel.newEvent?.guests.append(speaker)
+                            }
+                            prices.forEach { price in
+                                eventModel.newEvent?.priceDetails.append(price)
+                            }
+                            isNewEventViewPresented = false
+                            Task {
+                                try await eventModel.addEvent()
+                            }
                         }
-                        prices.forEach { price in
-                            eventModel.newEvent?.priceDetails.append(price)
-                        }
-                        isNewEventViewPresented = false
-                        eventModel.addEvent()
                     }
                 }) {
                     Text("Post")
@@ -83,6 +104,7 @@ struct NewEventView1: View {
                         .foregroundColor(.white)
                         .cornerRadius(10)
                 }
+
                 .padding(.horizontal)
             }
             .overlay(alignment: .center) {
@@ -251,6 +273,9 @@ struct NewEventView1: View {
                         .multilineTextAlignment(.center)
                     Button(action: {
                         alertMessage = ("", "")
+                        if innapropriateImageAlert == true {
+                            innapropriateImageAlert = false
+                        }
                         showAlert.toggle()
                     }) {
                         Text("Close")
@@ -265,29 +290,67 @@ struct NewEventView1: View {
             .animation(.easeInOut)
     }
     
+    @MainActor
     private func loadImages(from items: [PhotosPickerItem]) async -> [UIImage] {
         await withTaskGroup(of: UIImage?.self) { group in
             for item in items {
                 group.addTask {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        return uiImage
+                    // Load image data
+                    guard let data = try? await item.loadTransferable(type: Data.self),
+                          let uiImage = UIImage(data: data) else {
+                        return nil
                     }
-                    return nil
+                    
+                    if let score = await uiImage.predictImage() {
+                        print("SCORE IS: ")
+                        print(score)
+                    }
+
+                    // 🔍 Run the NSFW check
+                    if let score = await uiImage.predictImage(), score <= 0.5 {
+                        return uiImage // Safe image
+                    } else {
+                        // NSFW image - remove it from UI-bound array on main actor
+                        await MainActor.run {
+                            if let index = items.firstIndex(of: item) {
+                                innapropriateImageAlert = true
+                                alertMessage = ("NSFW Image Detected!", "One or more of your images was flagged for inappropriate content. For your safety and compliance, flagged images cannot be posted.")
+                                showAlert.toggle()
+                                selectedEventImages.remove(at: index)
+                            }
+                        }
+                        return nil
+                    }
                 }
             }
+
+            // Collect results
             var results: [UIImage] = []
-            for await image in group.compactMap({ $0 }) {
-                results.append(image)
+            for await image in group {
+                if let image = image {
+                    results.append(image)
+                }
             }
+
             return results
         }
     }
     
     // MARK: - Helper Functions
+    
+    /// Validate Stripe onboarding for paid events
+    private func validateStripeOnboarding() async -> Bool {
+        guard let userEmail = authenticationModel.state.currentUser?.email else { return false }
+        
+        // Sync status from backend
+        await stripeStatusManager.syncStripeStatus(email: userEmail)
+        
+        return stripeStatusManager.canCreatePaidEvents
+    }
+    
     private func addPrice() {
         guard !priceTitle.isEmpty, !eventPrice.isEmpty else { return }
-        prices.append(PriceDetails(title: priceTitle, price: eventPrice, link: ""))
+        prices.append(PriceDetails(title: priceTitle.aa_profanityFiltered("*"), price: eventPrice, link: ""))
         priceTitle = ""
         eventPrice = ""
     }

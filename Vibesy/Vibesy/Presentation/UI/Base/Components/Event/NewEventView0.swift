@@ -165,12 +165,12 @@ struct NewEventView0: View {
                 }
                 Button(
                     action: {
-                        eventModel.newEvent?.title = eventTitle
-                        eventModel.newEvent?.description = eventDescription
+                        eventModel.newEvent?.title = eventTitle.aa_profanityFiltered("*")
+                        eventModel.newEvent?.description = eventDescription.aa_profanityFiltered("*")
                         eventModel.newEvent?.location = eventLocation ?? ""
                         eventModel.newEvent?.date = formattedDate(date: eventDate)
                         eventModel.newEvent?.timeRange = formattedTimeRange(start: startTime, end: endTime)
-                        tags.forEach { eventModel.newEvent?.hashtags.append($0) }
+                        tags.forEach { eventModel.newEvent?.hashtags.append($0.aa_profanityFiltered("*")) }
                         
                         goNext.toggle()
                     },
@@ -190,6 +190,8 @@ struct NewEventView0: View {
             .padding()
         }
         .onAppear {
+            _ = AAObnoxiousFilter.shared
+
             if eventModel.currentEventDetails != nil {
                 eventModel.currentEventDetails?.hashtags.forEach {
                     tags.append($0)

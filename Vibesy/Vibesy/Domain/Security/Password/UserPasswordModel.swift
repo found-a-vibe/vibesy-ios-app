@@ -7,6 +7,7 @@
 
 import Foundation
 
+@MainActor
 class UserPasswordModel: ObservableObject {
     var email: String?
     var uid: String?

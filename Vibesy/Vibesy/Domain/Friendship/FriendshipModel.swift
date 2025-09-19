@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-class FriendshipModel: ObservableObject {
+@MainActor
+final class FriendshipModel: ObservableObject {
     private let service: FriendshipService
     @Published var friendRequests: [FriendRequest?]
     @Published var friendList: [String?] = []
