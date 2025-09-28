@@ -80,7 +80,7 @@ struct ProfileAgeView: View {
                         DropDownView(selectedOption: $selection)
                         Button(
                             action: {
-                                userProfileModel.userProfile.pronouns = selection == "Select your Pronouns" ? "N/A" : selection
+                                userProfileModel.userProfile.updatePronouns(selection == "Select your Pronouns" ? "N/A" : selection)
                                 onboardingPageCoordinator.push(page: .profileInterestsView)
                             },
                             label: {

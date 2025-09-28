@@ -9,20 +9,26 @@ import Foundation
 
 struct StripeConfig {
     // MARK: - Stripe Configuration
-    static let publishableKey = "pk_test_your_stripe_publishable_key_here" // Replace with your actual key
-    static let merchantId = "merchant.com.foundavibe.vibesy" // Replace with your Apple Pay merchant ID
+    static let publishableKey = "pk_test_51S99XIBpogKxZeV1ai7zkBp6jABrlHsbvbt2oHaWd90mETLkwqmPRoheP4So1FD2aUJQmhh3IlwCSG5VBTEuMlFk00pHTe8881" // Replace with your actual key
+    static let merchantId = "merchant.com.vibesy" // Replace with your Apple Pay merchant ID
     static let merchantCountryCode = "US"
     static let currency = "usd"
     
+    // MARK: - PaymentSheet Configuration
+    static let merchantDisplayName = "Vibesy"
+    static let returnURL = "vibesy://payment_complete"
+    
     // MARK: - Backend API Configuration
     #if DEBUG
-    static let backendURL = "http://localhost:3000"
+    static let backendURL = "http://10.20.226.15:3000"
     #else
     static let backendURL = "https://your-production-api.com"
     #endif
     
     // MARK: - Connect URLs
-    static let connectReturnURL = "vibesy://stripe/onboard_complete"
+    // Note: Stripe requires valid HTTP/HTTPS URLs, not custom schemes
+    // The web page will handle redirecting back to the app
+    static let connectReturnURL = "\(backendURL)/connect/return"
     static let connectRefreshURL = "\(backendURL)/connect/refresh"
     
     // MARK: - API Endpoints
@@ -39,7 +45,10 @@ struct StripeConfig {
 }
 
 // MARK: - API Response Models
-struct PaymentIntentResponse: Codable {
+// Note: PaymentIntentResponse for reservation system is in PaymentService.swift
+// This TicketPaymentIntentResponse is for the legacy ticket system
+
+struct TicketPaymentIntentResponse: Codable {
     let success: Bool
     let publishableKey: String
     let paymentIntentClientSecret: String

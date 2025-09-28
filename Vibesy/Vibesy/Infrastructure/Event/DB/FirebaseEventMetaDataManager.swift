@@ -12,13 +12,16 @@ struct FirebaseEventMetaDataManager {
     
     // Submit Event Object to Firestore
     func createOrUpdateEvent(eventId: String, createdByUid: String, eventDict: [String: Any], completion: @escaping (Result<Void, Error>) -> Void) {
-        let userRef = firestore.collection("users").document(createdByUid)
         let eventRef = firestore.collection("events").document(eventId.lowercased())
+        
+        // Only get user ref if this is a user-generated event
+        let isUserGenerated = !createdByUid.isEmpty
+        let userRef = isUserGenerated ? firestore.collection("users").document(createdByUid) : nil
 
         firestore.runTransaction({ transaction, errorPointer -> Any? in
             // Retrieve event document
             let eventSnapshot = try? transaction.getDocument(eventRef)
-            let userSnapshot = try? transaction.getDocument(userRef)
+            let userSnapshot = isUserGenerated ? (try? transaction.getDocument(userRef!)) : nil
             
             // If event exists, update it; otherwise, create it
             if eventSnapshot?.exists == true {
@@ -29,8 +32,8 @@ struct FirebaseEventMetaDataManager {
                 transaction.setData(eventDict, forDocument: eventRef)
             }
 
-            // Update user's posted events list
-            if let userSnapshot = userSnapshot {
+            // Update user's posted events list only for user-generated events
+            if isUserGenerated, let userSnapshot = userSnapshot, let userRef = userRef {
                 var postedEvents = Set(userSnapshot.get("postedEvents") as? [String] ?? [])
                 if postedEvents.insert(eventId).inserted { // Efficiently ensures uniqueness
                     transaction.updateData(["postedEvents": Array(postedEvents)], forDocument: userRef)
@@ -50,14 +53,17 @@ struct FirebaseEventMetaDataManager {
     }
     
     func deleteEvent(eventId: String, createdByUid: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        let userRef = firestore.collection("users").document(createdByUid)
         let eventRef = firestore.collection("events").document(eventId.lowercased())
+        
+        // Only get user ref if this is a user-generated event
+        let isUserGenerated = !createdByUid.isEmpty
+        let userRef = isUserGenerated ? firestore.collection("users").document(createdByUid) : nil
 
         firestore.runTransaction({ transaction, errorPointer -> Any? in
             do {
                 // Retrieve event document
                 let eventSnapshot = try transaction.getDocument(eventRef)
-                let userSnapshot = try transaction.getDocument(userRef)
+                let userSnapshot = isUserGenerated ? (try transaction.getDocument(userRef!)) : nil
 
                 // Ensure event exists before deleting
                 if eventSnapshot.exists {
@@ -67,11 +73,11 @@ struct FirebaseEventMetaDataManager {
                     print("Event \(eventId) does not exist. Skipping deletion.")
                 }
 
-                // Use Firestore’s built-in `arrayRemove` for atomic updates
-                if userSnapshot.exists {
+                // Update user's postedEvents list only for user-generated events
+                if isUserGenerated, let userSnapshot = userSnapshot, userSnapshot.exists, let userRef = userRef {
                     print("Removing event \(eventId) from user's postedEvents list.")
                     transaction.updateData(["postedEvents": FieldValue.arrayRemove([eventId])], forDocument: userRef)
-                } else {
+                } else if isUserGenerated {
                     print("User document not found. Skipping postedEvents update.")
                 }
 

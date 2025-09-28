@@ -193,10 +193,7 @@ struct NewEventView0: View {
             _ = AAObnoxiousFilter.shared
 
             if eventModel.currentEventDetails != nil {
-                eventModel.currentEventDetails?.hashtags.forEach {
-                    tags.append($0)
-                }
-                eventModel.currentEventDetails?.hashtags.removeAll()
+                tags = eventModel.currentEventDetails?.hashtags ?? []
                 
                 eventTitle = eventModel.currentEventDetails?.title ?? ""
                 eventLocation = eventModel.currentEventDetails?.location ?? ""
@@ -205,7 +202,7 @@ struct NewEventView0: View {
                 endTime = parseTimeRange(from: eventModel.currentEventDetails?.timeRange ?? "")?.end ?? Date().addingTimeInterval(3600)
                 eventDescription = eventModel.currentEventDetails?.description ?? ""
             } else {
-                eventModel.createNewEvent(userId: authenticationModel.state.currentUser?.id ?? "")
+                try? eventModel.createNewEvent(userId: authenticationModel.state.currentUser?.id ?? "")
             }
         }
         .onTapGesture {
@@ -300,3 +297,4 @@ extension NewEventView0 {
 #Preview {
     NewEventView0(isNewEventViewPresented: .constant(true))
 }
+

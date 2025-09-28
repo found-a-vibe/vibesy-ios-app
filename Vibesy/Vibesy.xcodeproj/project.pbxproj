@@ -13,6 +13,7 @@
 		876B2CB02D0F7321004F87A5 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2CAF2D0F7321004F87A5 /* FirebaseFirestore */; };
 		876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2CB12D0F7A3F004F87A5 /* FirebaseStorage */; };
 		876B2D0C2D11421E004F87A5 /* StreamChatSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 876B2D0B2D11421E004F87A5 /* StreamChatSwiftUI */; };
+		87EE9C902E88E1D200031E99 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 87EE9C8F2E88E1D200031E99 /* StripePaymentSheet */; };
 		87F3F5922D31F17500758086 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 87F3F5912D31F17500758086 /* Kingfisher */; };
 		87F64D162E4D48FB00E0B79D /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 87F64D152E4D48FB00E0B79D /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
@@ -83,6 +84,7 @@
 				8729E2772CF0475100E15DAC /* FirebaseAuth in Frameworks */,
 				876B2CB02D0F7321004F87A5 /* FirebaseFirestore in Frameworks */,
 				876B2CB22D0F7A3F004F87A5 /* FirebaseStorage in Frameworks */,
+				87EE9C902E88E1D200031E99 /* StripePaymentSheet in Frameworks */,
 				87F3F5922D31F17500758086 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -160,6 +162,7 @@
 				8725A7132D43E8820027E46D /* FirebaseMessaging */,
 				873291FF2DE41B090078C953 /* WrappingHStack */,
 				87F64D152E4D48FB00E0B79D /* FirebaseFunctions */,
+				87EE9C8F2E88E1D200031E99 /* StripePaymentSheet */,
 			);
 			productName = Vibesy;
 			productReference = 8729E1922CEF021400E15DAC /* Vibesy.app */;
@@ -258,6 +261,7 @@
 				876B2D072D114084004F87A5 /* XCRemoteSwiftPackageReference "stream-chat-swiftui" */,
 				87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				873291FE2DE41B090078C953 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
+				87EE9C8E2E88E1D200031E99 /* XCRemoteSwiftPackageReference "stripe-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8729E1932CEF021400E15DAC /* Products */;
@@ -676,6 +680,14 @@
 				minimumVersion = 4.68.0;
 			};
 		};
+		87EE9C8E2E88E1D200031E99 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.24.0;
+			};
+		};
 		87F3F5902D31F0EC00758086 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/onevcat/Kingfisher";
@@ -716,6 +728,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 876B2D072D114084004F87A5 /* XCRemoteSwiftPackageReference "stream-chat-swiftui" */;
 			productName = StreamChatSwiftUI;
+		};
+		87EE9C8F2E88E1D200031E99 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 87EE9C8E2E88E1D200031E99 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
 		};
 		87F3F5912D31F17500758086 /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;

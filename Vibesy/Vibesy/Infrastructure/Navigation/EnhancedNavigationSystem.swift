@@ -44,7 +44,7 @@ protocol EnhancedDestination: NavigationDestination {
 }
 
 /// Generic destination implementation
-struct Destination: EnhancedDestination {
+struct Destination: EnhancedDestination, CustomStringConvertible {
     let id: String
     let path: String
     let title: String
@@ -69,6 +69,10 @@ struct Destination: EnhancedDestination {
         self.requiresAuthentication = requiresAuthentication
         self.analyticsName = analyticsName ?? id
         self.preloadRequirements = preloadRequirements
+    }
+    
+    var description: String {
+        return "\(title) (\(path))"
     }
 }
 
@@ -436,39 +440,7 @@ struct EnhancedNavigationStack<Content: View>: View {
 }
 
 // MARK: - Navigation Analytics
-
-/// Analytics tracking for navigation events
-@MainActor
-final class NavigationAnalytics: ObservableObject {
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "NavigationAnalytics")
-    
-    func trackNavigation(to destination: NavigationDestination, method: String) {
-        let properties = [
-            "destination_id": destination.id,
-            "destination_path": destination.path,
-            "navigation_method": method,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        logger.info("Navigation tracked: \(destination.analyticsName) via \(method)")
-        
-        // Send to your analytics service
-        // Analytics.track("navigation", properties: properties)
-    }
-    
-    func trackTabSelection(index: Int, previousIndex: Int) {
-        let properties = [
-            "new_tab_index": String(index),
-            "previous_tab_index": String(previousIndex),
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        logger.info("Tab selection tracked: \(index) (from \(previousIndex))")
-        
-        // Send to your analytics service
-        // Analytics.track("tab_selection", properties: properties)
-    }
-}
+// Note: NavigationAnalytics class is defined in ImprovedCoordinators.swift
 
 // MARK: - Navigation Accessibility
 

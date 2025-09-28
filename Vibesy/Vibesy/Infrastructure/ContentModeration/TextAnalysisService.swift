@@ -11,14 +11,13 @@ import os.log
 
 // MARK: - Text Analysis Service
 
-final class TextAnalysisService {
+final class TextAnalysisService: @unchecked Sendable {
     
     // MARK: - Properties
     
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "TextAnalysis")
     
     // NLP Components
-    private let sentimentAnalyzer = NLModel.sentimentAnalyzer()
     private let languageRecognizer = NLLanguageRecognizer()
     private let tagger = NLTagger(tagSchemes: [.tokenType, .language, .lexicalClass, .nameType])
     
@@ -302,32 +301,27 @@ final class TextAnalysisService {
     }
     
     private func analyzeSentiment(_ text: String) -> Double? {
-        tagger.string = text
+        // Simplified sentiment analysis using basic keyword matching
+        let positiveWords = ["good", "great", "excellent", "amazing", "wonderful", "fantastic", "love", "like", "happy", "awesome"]
+        let negativeWords = ["bad", "terrible", "awful", "horrible", "hate", "dislike", "angry", "sad", "disappointed", "frustrated"]
+        
+        let lowercasedText = text.lowercased()
+        let words = lowercasedText.components(separatedBy: .whitespacesAndNewlines)
         
         var sentimentScore: Double = 0.0
-        var tokenCount = 0
+        var wordCount = 0
         
-        tagger.enumerateTokens(in: text.startIndex..<text.endIndex) { tokenRange, _ in
-            let token = String(text[tokenRange])
-            
-            if let prediction = try? sentimentAnalyzer?.prediction(from: token) {
-                if let label = prediction.label {
-                    switch label {
-                    case "Pos":
-                        sentimentScore += 1.0
-                    case "Neg":
-                        sentimentScore -= 1.0
-                    default:
-                        break
-                    }
-                    tokenCount += 1
-                }
+        for word in words {
+            if positiveWords.contains(word) {
+                sentimentScore += 1.0
+                wordCount += 1
+            } else if negativeWords.contains(word) {
+                sentimentScore -= 1.0
+                wordCount += 1
             }
-            
-            return true
         }
         
-        return tokenCount > 0 ? sentimentScore / Double(tokenCount) : nil
+        return wordCount > 0 ? sentimentScore / Double(wordCount) : nil
     }
     
     private func performComprehensiveAnalysis(_ text: String) -> TextAnalysisResult {
@@ -357,10 +351,13 @@ final class TextAnalysisService {
         var entities: [String] = []
         
         tagger.string = text
-        tagger.enumerateTokens(in: text.startIndex..<text.endIndex) { tokenRange, attributes in
-            if let nameType = attributes[.nameType] {
+        let range = text.startIndex..<text.endIndex
+        
+        // Use the correct NLTagger API for enumerating tags
+        tagger.enumerateTags(in: range, unit: .word, scheme: .nameType, options: [.omitWhitespace]) { tag, tokenRange in
+            if let tag = tag {
                 let entity = String(text[tokenRange])
-                entities.append("\(nameType): \(entity)")
+                entities.append("\(tag.rawValue): \(entity)")
             }
             return true
         }
@@ -410,7 +407,7 @@ final class TextAnalysisService {
 
 // MARK: - Supporting Types
 
-struct TextAnalysisResult {
+final class TextAnalysisResult {
     var wordCount: Int = 0
     var characterCount: Int = 0
     var language: String?
@@ -418,4 +415,6 @@ struct TextAnalysisResult {
     var containsPII: Bool = false
     var entities: [String] = []
     var readabilityScore: Double = 0.0
+    
+    init() {}
 }

@@ -36,7 +36,7 @@ final class FriendshipModel: ObservableObject {
                 print("Error sending Friend Request: \(error)")
             } else {
                 DispatchQueue.main.async {
-                    self.friendRequests.removeAll { $0?.fromUserId == fromUserId }
+                    self.friendRequests.removeAll { $0?.senderUID == fromUserId }
                 }
                 print("Friend Request sent successfully.")
             }
@@ -50,7 +50,7 @@ final class FriendshipModel: ObservableObject {
                 print("Error sending Friend Request: \(error)")
             } else {
                 DispatchQueue.main.async {
-                    self.friendRequests.removeAll { $0?.fromUserId == fromUserId }
+                    self.friendRequests.removeAll { $0?.senderUID == fromUserId }
                 }
                 print("Friend Request sent successfully.")
             }

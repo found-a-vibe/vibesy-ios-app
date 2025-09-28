@@ -20,14 +20,16 @@ struct ForgotPasswordView: View {
     
     func handleSubmit() {
         userPasswordModel.sendOTP(for: input) { result in
-            if let status = try? result.get().status, status == "OK" {
-                homePageCoordinator.push(page: .otpVerificationView)
-            } else if let response = try? result.get() {
-                self.errorMessage = response.description
-                self.showAlert.toggle()
-            } else {
-                self.errorMessage = "Unexpected error sending OTP to \(input)."
-                self.showAlert.toggle()
+            Task { @MainActor in
+                if let status = try? result.get().status, status == "OK" {
+                    homePageCoordinator.push(page: .otpVerificationView)
+                } else if let response = try? result.get() {
+                    self.errorMessage = response.description
+                    self.showAlert.toggle()
+                } else {
+                    self.errorMessage = "Unexpected error sending OTP to \(input)."
+                    self.showAlert.toggle()
+                }
             }
         }
     }
@@ -146,3 +148,4 @@ struct ForgotPasswordView: View {
 #Preview {
     ForgotPasswordView()
 }
+

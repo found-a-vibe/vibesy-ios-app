@@ -19,7 +19,7 @@ class UserPasswordModel: ObservableObject {
         self.service = service
     }
     
-    func sendOTP(for email: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    func sendOTP(for email: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         service.sendOTP(to: email) { result in
             DispatchQueue.main.async {
                 switch result {
@@ -35,7 +35,7 @@ class UserPasswordModel: ObservableObject {
         }
     }
     
-    func verifyOTP(with otp: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    func verifyOTP(with otp: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         guard let email = email else {
             let error = NSError(
                 domain: "com.foundavibe.verifyOTP",
@@ -60,7 +60,7 @@ class UserPasswordModel: ObservableObject {
         }
     }
     
-    func updatePassword(withNewPassword newPassword: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    func updatePassword(withNewPassword newPassword: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         guard let uid = uid else {
             let error = NSError(
                 domain: "com.foundavibe.updatePassword",

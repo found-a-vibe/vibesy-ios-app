@@ -9,13 +9,25 @@ import SwiftUI
 import Combine
 import os.log
 
+
+// MARK: - Destination
+// Note: Destination struct is defined in EnhancedNavigationSystem.swift
+
+// MARK: - Navigation Analytics
+final class NavigationAnalytics {
+    func trackNavigation(to destination: String, method: String) {
+        // Placeholder for analytics tracking
+        print("Navigation tracked: \(destination) via \(method)")
+    }
+}
+
 // MARK: - Improved Base Coordinator Protocol
 
 /// Enhanced base coordinator with better practices for iOS 18+
 @MainActor
 protocol ImprovedCoordinator: AnyObject, ObservableObject {
     associatedtype ViewType: View
-    associatedtype RouteType: Hashable & CaseIterable
+    associatedtype RouteType: Hashable & CaseIterable & Sendable
     
     /// Navigation path for the coordinator
     var navigationPath: NavigationPath { get set }
@@ -114,15 +126,15 @@ enum NavigationDirection: String, CaseIterable {
 // MARK: - Route-based Navigation Handler
 
 /// Generic navigation handler that can be used across coordinators
-struct NavigationHandler<Route: Hashable & CaseIterable> {
-    private let onNavigate: (Route) async -> Void
-    private let onBack: () -> Void
-    private let onRoot: () -> Void
+struct NavigationHandler<Route: Hashable & CaseIterable & Sendable>: @unchecked Sendable {
+    private let onNavigate: @Sendable (Route) async -> Void
+    private let onBack: @Sendable () -> Void
+    private let onRoot: @Sendable () -> Void
     
     init(
-        onNavigate: @escaping (Route) async -> Void,
-        onBack: @escaping () -> Void,
-        onRoot: @escaping () -> Void
+        onNavigate: @escaping @Sendable (Route) async -> Void,
+        onBack: @escaping @Sendable () -> Void,
+        onRoot: @escaping @Sendable () -> Void
     ) {
         self.onNavigate = onNavigate
         self.onBack = onBack
@@ -180,10 +192,14 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
                 await self?.navigate(to: route)
             },
             onBack: { [weak self] in
-                self?.navigateBack()
+                Task { @MainActor in
+                    self?.navigateBack()
+                }
             },
             onRoot: { [weak self] in
-                self?.popToRoot()
+                Task { @MainActor in
+                    self?.popToRoot()
+                }
             }
         )
         
@@ -204,7 +220,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button("Back") {
-                                navigateBack()
+                                self.navigateBack()
                             }
                             .accessibilityLabel("Go back to explore")
                         }
@@ -221,7 +237,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button("Back") {
-                                navigateBack()
+                                self.navigateBack()
                             }
                             .accessibilityLabel("Go back to explore")
                         }
@@ -237,14 +253,14 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button("Cancel") {
-                                navigateBack()
+                                self.navigateBack()
                             }
                         }
                         
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Save") {
                                 // Handle save action
-                                navigateBack()
+                                self.navigateBack()
                             }
                             .fontWeight(.semibold)
                         }
@@ -260,7 +276,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button("Back") {
-                                navigateBack()
+                                self.navigateBack()
                             }
                             .accessibilityLabel("Go back")
                         }
@@ -269,7 +285,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
         }
     }
     
-    override func navigate(to route: ExploreRoute) async {
+    func navigate(to route: ExploreRoute) async {
         isLoading = true
         
         // Validate navigation
@@ -281,17 +297,18 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
         // Preload data if needed
         await preloadData(for: route)
         
-        // Perform navigation
-        await super.navigate(to: route)
+        // Perform navigation (call protocol default implementation)
+        currentRoute = route
+        navigationPath.append(route)
         
         // Track analytics
         analytics.trackNavigation(
-            to: route.destination,
+            to: route.destination.analyticsName,
             method: "programmatic"
         )
         
         isLoading = false
-        logger.info("Navigated to route: \(route.rawValue)")
+        logger.info("Navigated to route: \(route.destination)")
     }
     
     func presentModal(_ modal: ExploreModal) {
@@ -304,7 +321,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
         logger.info("Dismissed modal")
     }
     
-    override func handleDeepLink(_ url: URL) async -> Bool {
+    func handleDeepLink(_ url: URL) async -> Bool {
         guard url.scheme == "vibesy" else { return false }
         
         let path = url.path.lowercased()
@@ -357,7 +374,7 @@ final class ImprovedExploreCoordinator: ImprovedCoordinator {
 
 // MARK: - Explore Routes
 
-enum ExploreRoute: String, Hashable, CaseIterable {
+enum ExploreRoute: String, Hashable, CaseIterable, Sendable {
     case home
     case notifications
     case profile
@@ -395,7 +412,7 @@ enum ExploreRoute: String, Hashable, CaseIterable {
 
 // MARK: - Explore Modals
 
-enum ExploreModal: String, Identifiable, CaseIterable {
+enum ExploreModal: String, Identifiable, CaseIterable, Sendable {
     case settings
     case help
     case reportUser

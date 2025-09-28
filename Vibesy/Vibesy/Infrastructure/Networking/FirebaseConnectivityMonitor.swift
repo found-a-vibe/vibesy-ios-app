@@ -43,7 +43,8 @@ final class FirebaseConnectivityMonitor: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        // Cleanup is handled by stopMonitoring() method
+        // Can't access non-Sendable properties from nonisolated deinit
     }
     
     // MARK: - Monitoring
@@ -161,6 +162,14 @@ final class FirebaseConnectivityMonitor: ObservableObject {
             self.maxRetries = maxRetries
         }
         
+        private init(id: UUID, operation: @escaping () async throws -> Void, timestamp: Date, retryCount: Int, maxRetries: Int) {
+            self.id = id
+            self.operation = operation
+            self.timestamp = timestamp
+            self.retryCount = retryCount
+            self.maxRetries = maxRetries
+        }
+        
         func withIncrementedRetry() -> OfflineOperation {
             return OfflineOperation(
                 id: self.id,
@@ -177,7 +186,7 @@ final class FirebaseConnectivityMonitor: ObservableObject {
     }
     
     func queueOfflineOperation(_ operation: @escaping () async throws -> Void) {
-        guard offlineOperations.count < maxOfflineOperations else {
+        if offlineOperations.count >= maxOfflineOperations {
             logger.warning("Offline operations queue is full, dropping oldest operation")
             offlineOperations.removeFirst()
         }
@@ -185,13 +194,13 @@ final class FirebaseConnectivityMonitor: ObservableObject {
         let offlineOp = OfflineOperation(operation: operation)
         offlineOperations.append(offlineOp)
         
-        logger.info("Queued offline operation (total: \(offlineOperations.count))")
+        logger.info("Queued offline operation (total: \(self.offlineOperations.count))")
     }
     
     private func processOfflineOperations() async {
         guard !offlineOperations.isEmpty else { return }
         
-        logger.info("Processing \(offlineOperations.count) offline operations")
+        logger.info("Processing \(self.offlineOperations.count) offline operations")
         
         var processedIndices: [Int] = []
         var retriedOperations: [OfflineOperation] = []
@@ -235,7 +244,7 @@ final class FirebaseConnectivityMonitor: ObservableObject {
         
         Task {
             // Disable and re-enable network
-            try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 db.disableNetwork { error in
                     if let error = error {
                         continuation.resume(throwing: error)

@@ -24,14 +24,19 @@ struct VibesyUserPasswordService: UserPasswordService {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "PasswordService")
     
     private let baseURL: String = "https://one-time-password-service.onrender.com"
-    private let securityService = EnhancedSecurityService.shared
+    
+    private var securityService: EnhancedSecurityService {
+        get async {
+            await EnhancedSecurityService.shared
+        }
+    }
     
     // MARK: - Configuration
     private let timeoutInterval: TimeInterval = 30.0
     private let maxRetryAttempts = 3
     
     // MARK: - Send OTP with Security
-    public func sendOTP(to email: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    public func sendOTP(to email: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         Task {
             do {
                 let result = try await sendOTPAsync(to: email)
@@ -47,23 +52,25 @@ struct VibesyUserPasswordService: UserPasswordService {
     }
     
     private func sendOTPAsync(to email: String) async throws -> UserPasswordServiceResponse {
+        let service = await securityService
+        
         // Validate email format
-        guard securityService.validateEmail(email) else {
+        guard await service.validateEmail(email) else {
             Self.logger.error("Invalid email format: \(email)")
             throw SecurityError.invalidPassword
         }
         
         // Rate limiting
-        try securityService.checkRateLimit(for: "otp_\(email)")
+        try await service.checkRateLimit(for: "otp_\(email)")
         
         // Sanitize input
-        let sanitizedEmail = securityService.sanitizeInput(email)
+        let sanitizedEmail = await service.sanitizeInput(email)
         
         guard let url = URL(string: "\(baseURL)/otp/send") else {
             throw URLError(.badURL)
         }
         
-        var request = securityService.createSecureURLRequest(url: url)
+        var request = await service.createSecureURLRequest(url: url)
         request.httpMethod = "POST"
         
         let body = ["email": sanitizedEmail]
@@ -97,7 +104,7 @@ struct VibesyUserPasswordService: UserPasswordService {
         }
     }
     // MARK: - Verify OTP with Security
-    public func verifyOTP(for email: String, withOTP otp: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    public func verifyOTP(for email: String, withOTP otp: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         Task {
             do {
                 let result = try await verifyOTPAsync(for: email, withOTP: otp)
@@ -113,8 +120,10 @@ struct VibesyUserPasswordService: UserPasswordService {
     }
     
     private func verifyOTPAsync(for email: String, withOTP otp: String) async throws -> UserPasswordServiceResponse {
+        let service = await securityService
+        
         // Validate inputs
-        guard securityService.validateEmail(email) else {
+        guard await service.validateEmail(email) else {
             Self.logger.error("Invalid email format for OTP verification")
             throw SecurityError.invalidPassword
         }
@@ -125,17 +134,17 @@ struct VibesyUserPasswordService: UserPasswordService {
         }
         
         // Rate limiting
-        try securityService.checkRateLimit(for: "verify_\(email)")
+        try await service.checkRateLimit(for: "verify_\(email)")
         
         // Sanitize inputs
-        let sanitizedEmail = securityService.sanitizeInput(email)
-        let sanitizedOTP = securityService.sanitizeInput(otp)
+        let sanitizedEmail = await service.sanitizeInput(email)
+        let sanitizedOTP = await service.sanitizeInput(otp)
         
         guard let url = URL(string: "\(baseURL)/otp/verify") else {
             throw URLError(.badURL)
         }
         
-        var request = securityService.createSecureURLRequest(url: url)
+        var request = await service.createSecureURLRequest(url: url)
         request.httpMethod = "POST"
         
         let body = ["email": sanitizedEmail, "otp": sanitizedOTP]
@@ -170,7 +179,7 @@ struct VibesyUserPasswordService: UserPasswordService {
     }
     
     // MARK: - Update Password with Security
-    public func updatePassword(for uid: String, withNewPassword newPassword: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void) {
+    public func updatePassword(for uid: String, withNewPassword newPassword: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void) {
         Task {
             do {
                 let result = try await updatePasswordAsync(for: uid, withNewPassword: newPassword)
@@ -186,6 +195,8 @@ struct VibesyUserPasswordService: UserPasswordService {
     }
     
     private func updatePasswordAsync(for uid: String, withNewPassword newPassword: String) async throws -> UserPasswordServiceResponse {
+        let service = await securityService
+        
         // Validate UID
         guard !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             Self.logger.error("Invalid UID for password update")
@@ -193,23 +204,23 @@ struct VibesyUserPasswordService: UserPasswordService {
         }
         
         // Validate password strength
-        try securityService.validatePassword(newPassword)
+        try await service.validatePassword(newPassword)
         
         // Rate limiting
-        try securityService.checkRateLimit(for: "password_\(uid)")
+        try await service.checkRateLimit(for: "password_\(uid)")
         
         // Sanitize inputs
-        let sanitizedUID = securityService.sanitizeInput(uid)
+        let sanitizedUID = await service.sanitizeInput(uid)
         
         guard let url = URL(string: "\(baseURL)/password/reset") else {
             throw URLError(.badURL)
         }
         
-        var request = securityService.createSecureURLRequest(url: url)
+        var request = await service.createSecureURLRequest(url: url)
         request.httpMethod = "POST"
         
         // Hash the password before sending (additional security layer)
-        let hashedPassword = securityService.hashSensitiveData(newPassword)
+        let hashedPassword = await service.hashSensitiveData(newPassword)
         
         let body = ["uid": sanitizedUID, "password": hashedPassword]
         

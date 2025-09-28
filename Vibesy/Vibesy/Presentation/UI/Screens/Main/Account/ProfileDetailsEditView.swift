@@ -36,7 +36,7 @@ struct ProfileDetailsEditView: View {
                             navigate(.back)
                         }
                         if let user = authenticationModel.state.currentUser {
-                            userProfileModel.userProfile.pronouns = selection == "Select your Pronouns" ? "N/A" : selection
+                            userProfileModel.userProfile.updatePronouns(selection == "Select your Pronouns" ? "N/A" : selection)
                             userProfileModel.userProfile.interests.removeAll()
                             tags.forEach {
                                 if $0 != "" {

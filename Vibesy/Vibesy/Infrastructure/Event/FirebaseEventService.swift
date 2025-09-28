@@ -11,11 +11,12 @@ import FirebaseStorage
 
 class FirebaseEventService: EventService, @unchecked Sendable {
     let eventMetaDataManager: FirebaseEventMetaDataManager = FirebaseEventMetaDataManager()
+    let interactionManager: InteractionManager = InteractionManager()
     
     @discardableResult
     func createOrUpdateEvent(_ event: Event) async throws -> Event {
         // Base payload (immutable)
-        let base: [String: Any] = [
+        var base: [String: Any] = [
             "id": event.id.uuidString,
             "title": event.title,
             "description": event.description,
@@ -24,20 +25,40 @@ class FirebaseEventService: EventService, @unchecked Sendable {
             "location": event.location,
             "hashtags": Array(event.hashtags),
             "guests": event.guests.map { ["id": $0.id.uuidString, "name": $0.name] },
-            "priceDetails": event.priceDetails.map { ["title": $0.title, "price": $0.price] },
+            "priceDetails": event.priceDetails.map { priceDetail in
+                var dict: [String: Any] = [
+                    "id": priceDetail.id.uuidString,
+                    "title": priceDetail.title,
+                    "price": NSDecimalNumber(decimal: priceDetail.price).doubleValue,
+                    "currency": priceDetail.currency.rawValue,
+                    "type": priceDetail.type.rawValue
+                ]
+                if let stripePriceId = priceDetail.stripePriceId {
+                    dict["stripePriceId"] = stripePriceId
+                }
+                return dict
+            },
             "likes": Array(event.likes),
             "createdBy": event.createdBy,
-            "category": event.category ?? "N/A"
+//            "category": event.category ?? "N/A"
         ]
+        
+        // Add Stripe product information if available
+        if let stripeProductId = event.stripeProductId {
+            base["stripeProductId"] = stripeProductId
+        }
+        if let stripeConnectedAccountId = event.stripeConnectedAccountId {
+            base["stripeConnectedAccountId"] = stripeConnectedAccountId
+        }
 
         // Run heavy work in parallel
         async let guestsDict: [String: Any] = Self.uploadGuestsAndBuildDict(for: event)
 
         // Image task: upload if new, otherwise reuse existing
         let imagesTask = Task<[String], Error> {
-            if let newImages = event.newImages, !newImages.isEmpty {
+            if !event.newImages.isEmpty {
                 // your async uploader; should avoid capturing UIImage across executors
-                return try await FirebaseEventImageManager.uploadImages(images: newImages,
+                return try await FirebaseEventImageManager.uploadImages(images: event.newImages,
                                                                         folder: "event_images/\(event.id.uuidString.lowercased())",
                                                                        id: event.id)
             } else {
@@ -59,15 +80,23 @@ class FirebaseEventService: EventService, @unchecked Sendable {
             eventDict: payload
         )
 
-        // Return updated model
-        var updated = event
-        updated.images = imageURLs
-        return updated
+        // Return updated model with image URLs
+        var updatedEvent = event
+        updatedEvent.setImageURLs(imageURLs)
+        return updatedEvent
     }
     
     func deleteEvent(eventId: String, createdByUid: String) async throws {
         try await eventMetaDataManager.deleteEventAsync(eventId: eventId, createdByUid: createdByUid)
         try await FirebaseEventImageManager.deleteImagesAsync(eventId: eventId)
+    }
+    
+    func getEventFeed(uid: String) async throws -> [Event] {
+        return try await withCheckedThrowingContinuation { continuation in
+            getEventFeed(uid: uid) { result in
+                continuation.resume(with: result)
+            }
+        }
     }
     
     func getEventFeed(uid: String, completion: @escaping @MainActor (Result<[Event], Error>) -> Void) {
@@ -86,10 +115,13 @@ class FirebaseEventService: EventService, @unchecked Sendable {
                         let dict = try await FirebaseEventImageManager
                             .retrieveImagesForEventIds(ids)
                         
-                        let updated: [Event] = events.map { event in
-                            var e = event
-                            e.images = dict[event.id.uuidString] ?? []
-                            return e
+                        // Merge image URLs with events
+                        let updated: [Event] = events.compactMap { event in
+                            var updatedEvent = event
+                            if let imageUrls = dict[event.id.uuidString] {
+                                updatedEvent.setImageURLs(imageUrls)
+                            }
+                            return updatedEvent
                         }
                         
                         await completion(.success(updated))
@@ -100,6 +132,14 @@ class FirebaseEventService: EventService, @unchecked Sendable {
                 
             case .failure(let error):
                 Task { await completion(.failure(error)) }
+            }
+        }
+    }
+    
+    func getEventsByStatus(uid: String, status: EventStatus) async throws -> [Event] {
+        return try await withCheckedThrowingContinuation { continuation in
+            getEventsByStatus(uid: uid, status: status) { result in
+                continuation.resume(with: result)
             }
         }
     }
@@ -119,10 +159,13 @@ class FirebaseEventService: EventService, @unchecked Sendable {
                         // async version that returns [eventId: [url]]
                         let dict = try await FirebaseEventImageManager.retrieveImagesForEventIds(ids)
 
-                        let updated = events.map { event -> Event in
-                            var e = event
-                            e.images = dict[event.id.uuidString] ?? []
-                            return e
+                        // Merge image URLs with events
+                        let updated: [Event] = events.compactMap { event in
+                            var updatedEvent = event
+                            if let imageUrls = dict[event.id.uuidString] {
+                                updatedEvent.setImageURLs(imageUrls)
+                            }
+                            return updatedEvent
                         }
 
                         await completion(.success(updated))
@@ -136,50 +179,55 @@ class FirebaseEventService: EventService, @unchecked Sendable {
             }
         }
     }
+    
+    // MARK: - Like/Unlike Methods
+    func likeEvent(eventId: String, userID: String) async throws {
+        // Use InteractionManager which handles the complete like flow
+        // including updating user's likedEvents and event's likes/interactions
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            interactionManager.likeEvent(uid: userID, eventId: eventId) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+    
+    func unlikeEvent(eventId: String, userID: String) async throws {
+        // Use InteractionManager which handles the complete unlike flow
+        // including updating user's likedEvents and event's likes/interactions
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            interactionManager.unlikeEvent(uid: userID, eventId: eventId) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
 }
 
 extension FirebaseEventService {
     private static func uploadGuestsAndBuildDict(
         for event: Event,
     ) async throws -> [String: Any] {
-        let guests = event.getGuests()
+        let guests = event.guests
         guard !guests.isEmpty else { return [:] }
         
-        // Use a TaskGroup to upload all images in parallel
-        let uploadResults: [(index: Int, dict: [String: String])] = try await withThrowingTaskGroup(
-            of: (Int, [String: String]).self
-        ) { group in
-            for (idx, guest) in guests.enumerated() {
-                guard let img = guest.image else { continue }
-                group.addTask {
-                    let urlString = try await FirebaseEventImageManager.uploadImages(
-                        images: [img],
-                        folder: "guest_speakers",
-                        id: guest.id,
-                    )
-                    let entry: [String: String] = [
-                        "id": guest.id.uuidString,
-                        "name": guest.name,
-                        "role": guest.role,
-                        "imageUrl": urlString[0]
-                    ]
-                    return (idx, entry)
-                }
-            }
-            
-            var results = [(Int, [String: String])]()
-            for try await result in group {
-                results.append(result)
-            }
-            return results
+        // Convert guests to dictionary format (no image upload since Guest model doesn't have UIImage)
+        let guestsDictArray = guests.map { guest in
+            [
+                "id": guest.id.uuidString,
+                "name": guest.name,
+                "role": guest.role,
+                "imageUrl": guest.imageUrl ?? ""
+            ]
         }
         
-        // Sort by the original index to preserve order
-        let sorted = uploadResults
-            .sorted { $0.index < $1.index }
-            .map { $0.dict }
-        
-        return ["guests": sorted]
+        return ["guests": guestsDictArray]
     }
 }
 

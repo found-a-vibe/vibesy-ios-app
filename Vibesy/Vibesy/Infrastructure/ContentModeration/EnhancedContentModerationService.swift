@@ -5,17 +5,16 @@
 //  Created by Refactoring Bot on 12/19/24.
 //
 
-import Foundation
-import UIKit
-import CoreML
-import Vision
-import NaturalLanguage
+@preconcurrency import Foundation
+@preconcurrency import UIKit
+@preconcurrency import NaturalLanguage
+@preconcurrency import Combine
 import os.log
 import CryptoKit
 
 // MARK: - Content Moderation Types
 
-enum ContentType {
+enum ContentType: Sendable {
     case text(String)
     case image(UIImage)
     case url(URL)
@@ -24,14 +23,14 @@ enum ContentType {
     case event(Event)
 }
 
-enum ModerationResult {
+enum ModerationResult: Sendable {
     case approved
     case flagged(reasons: [FlagReason], confidence: Double)
     case blocked(reasons: [FlagReason], confidence: Double)
     case requiresReview(reasons: [FlagReason], confidence: Double)
 }
 
-enum FlagReason {
+enum FlagReason: Sendable {
     case profanity(severity: ProfanitySeverity)
     case explicitContent(type: ExplicitContentType)
     case harassment
@@ -47,14 +46,23 @@ enum FlagReason {
     case custom(String)
 }
 
-enum ProfanitySeverity {
+enum ProfanitySeverity: CustomStringConvertible {
     case mild
     case moderate
     case severe
     case extreme
+    
+    var description: String {
+        switch self {
+        case .mild: return "mild"
+        case .moderate: return "moderate"
+        case .severe: return "severe"
+        case .extreme: return "extreme"
+        }
+    }
 }
 
-enum ExplicitContentType {
+enum ExplicitContentType: Sendable {
     case nsfw
     case suggestive
     case violence
@@ -62,7 +70,7 @@ enum ExplicitContentType {
     case alcohol
 }
 
-enum ImageViolationType {
+enum ImageViolationType: Sendable {
     case nsfw(confidence: Double)
     case violence(confidence: Double)
     case inappropriate(confidence: Double)
@@ -71,7 +79,7 @@ enum ImageViolationType {
 
 // MARK: - Content Moderation Configuration
 
-struct ContentModerationConfig {
+struct ContentModerationConfig: Sendable {
     // Text moderation thresholds
     let profanityThreshold: Double = 0.7
     let harassmentThreshold: Double = 0.6
@@ -100,7 +108,7 @@ struct ContentModerationConfig {
 // MARK: - Enhanced Content Moderation Service
 
 @MainActor
-final class EnhancedContentModerationService: ObservableObject {
+final class EnhancedContentModerationService: ObservableObject, @unchecked Sendable {
     static let shared = EnhancedContentModerationService()
     
     private let config = ContentModerationConfig.default
@@ -112,9 +120,8 @@ final class EnhancedContentModerationService: ObservableObject {
     private let textAnalysisService = TextAnalysisService()
     private let urlValidationService = URLValidationService()
     
-    // MARK: - Caching
+    // MARK: - Caching (access from the main actor only)
     private let cache = NSCache<NSString, CachedModerationResult>()
-    private let cacheQueue = DispatchQueue(label: "ContentModerationCache", qos: .utility)
     
     // MARK: - Performance Management
     private let operationQueue: OperationQueue
@@ -214,79 +221,29 @@ final class EnhancedContentModerationService: ObservableObject {
     
     private func moderateText(_ text: String) async throws -> ModerationResult {
         let sanitizedText = textAnalysisService.sanitizeText(text)
-        var flagReasons: [FlagReason] = []
-        var totalConfidence: Double = 0
-        var checks: Int = 0
-        
-        // Profanity check
-        if let profanityResult = try await profanityService.checkProfanity(sanitizedText) {
-            flagReasons.append(profanityResult.reason)
-            totalConfidence += profanityResult.confidence
-            checks += 1
-        }
-        
-        // Harassment detection
-        if let harassmentScore = try await textAnalysisService.detectHarassment(sanitizedText),
-           harassmentScore > config.harassmentThreshold {
-            flagReasons.append(.harassment)
-            totalConfidence += harassmentScore
-            checks += 1
-        }
-        
-        // Spam detection
-        if let spamScore = try await textAnalysisService.detectSpam(sanitizedText),
-           spamScore > config.spamThreshold {
-            flagReasons.append(.spam)
-            totalConfidence += spamScore
-            checks += 1
-        }
-        
-        // Personal information detection
-        if textAnalysisService.containsPersonalInformation(sanitizedText) {
-            flagReasons.append(.personalInformation)
-            totalConfidence += 0.9
-            checks += 1
-        }
-        
-        // Calculate average confidence
-        let averageConfidence = checks > 0 ? totalConfidence / Double(checks) : 0
-        
+        let harassmentThreshold = ContentModerationConfig.default.harassmentThreshold
+        let spamThreshold = ContentModerationConfig.default.spamThreshold
+        let (flagReasons, averageConfidence) = try await self.computeTextFlags(
+            sanitizedText: sanitizedText,
+            harassmentThreshold: harassmentThreshold,
+            spamThreshold: spamThreshold
+        )
+
         return determineResult(flagReasons: flagReasons, confidence: averageConfidence)
     }
     
     private func moderateImage(_ image: UIImage) async throws -> ModerationResult {
-        var flagReasons: [FlagReason] = []
-        var totalConfidence: Double = 0
-        var checks: Int = 0
-        
-        // NSFW detection
-        if let nsfwScore = try await imageService.detectNSFW(image) {
-            if nsfwScore > config.nsfwThreshold {
-                flagReasons.append(.inappropriateImage(type: .nsfw(confidence: nsfwScore)))
-            }
-            totalConfidence += nsfwScore
-            checks += 1
-        }
-        
-        // Violence detection
-        if let violenceScore = try await imageService.detectViolence(image),
-           violenceScore > config.violenceThreshold {
-            flagReasons.append(.inappropriateImage(type: .violence(confidence: violenceScore)))
-            totalConfidence += violenceScore
-            checks += 1
-        }
-        
-        // Image quality check
-        let qualityScore = try await imageService.assessImageQuality(image)
-        if qualityScore < config.qualityThreshold {
-            flagReasons.append(.inappropriateImage(type: .lowQuality(confidence: 1.0 - qualityScore)))
-            totalConfidence += (1.0 - qualityScore)
-            checks += 1
-        }
-        
-        // Calculate average confidence
-        let averageConfidence = checks > 0 ? totalConfidence / Double(checks) : 0
-        
+        let nsfwThreshold = ContentModerationConfig.default.nsfwThreshold
+        let violenceThreshold = ContentModerationConfig.default.violenceThreshold
+        let qualityThreshold = ContentModerationConfig.default.qualityThreshold
+
+        let (flagReasons, averageConfidence) = try await self.computeImageFlags(
+            image: image,
+            nsfwThreshold: nsfwThreshold,
+            violenceThreshold: violenceThreshold,
+            qualityThreshold: qualityThreshold
+        )
+
         return determineResult(flagReasons: flagReasons, confidence: averageConfidence)
     }
     
@@ -307,27 +264,10 @@ final class EnhancedContentModerationService: ObservableObject {
     }
     
     private func moderateHashtags(_ hashtags: [String]) async throws -> ModerationResult {
-        var flagReasons: [FlagReason] = []
-        var totalConfidence: Double = 0
-        var checks: Int = 0
-        
-        for hashtag in hashtags {
-            if let profanityResult = try await profanityService.checkProfanity(hashtag) {
-                flagReasons.append(profanityResult.reason)
-                totalConfidence += profanityResult.confidence
-                checks += 1
-            }
-        }
-        
-        // Check for hashtag spam patterns
-        if textAnalysisService.detectHashtagSpam(hashtags) {
-            flagReasons.append(.spam)
-            totalConfidence += 0.8
-            checks += 1
-        }
-        
-        let averageConfidence = checks > 0 ? totalConfidence / Double(checks) : 0
-        
+        let (flagReasons, averageConfidence) = try await self.computeHashtagFlags(
+            hashtags: hashtags
+        )
+
         return determineResult(flagReasons: flagReasons, confidence: averageConfidence)
     }
     
@@ -336,7 +276,6 @@ final class EnhancedContentModerationService: ObservableObject {
         var totalConfidence: Double = 0
         var checks: Int = 0
         
-        // Moderate display name
         let nameResult = try await moderateText(profile.displayName)
         if case .flagged(let reasons, let confidence) = nameResult {
             allFlags.append(contentsOf: reasons)
@@ -344,7 +283,6 @@ final class EnhancedContentModerationService: ObservableObject {
             checks += 1
         }
         
-        // Moderate bio if present
         if !profile.bio.isEmpty {
             let bioResult = try await moderateText(profile.bio)
             if case .flagged(let reasons, let confidence) = bioResult {
@@ -364,7 +302,6 @@ final class EnhancedContentModerationService: ObservableObject {
         var totalConfidence: Double = 0
         var checks: Int = 0
         
-        // Moderate title
         let titleResult = try await moderateText(event.title)
         if case .flagged(let reasons, let confidence) = titleResult {
             allFlags.append(contentsOf: reasons)
@@ -372,7 +309,6 @@ final class EnhancedContentModerationService: ObservableObject {
             checks += 1
         }
         
-        // Moderate description
         let descResult = try await moderateText(event.description)
         if case .flagged(let reasons, let confidence) = descResult {
             allFlags.append(contentsOf: reasons)
@@ -380,7 +316,6 @@ final class EnhancedContentModerationService: ObservableObject {
             checks += 1
         }
         
-        // Moderate hashtags
         if !event.hashtags.isEmpty {
             let hashtagResult = try await moderateHashtags(event.hashtags)
             if case .flagged(let reasons, let confidence) = hashtagResult {
@@ -430,28 +365,137 @@ final class EnhancedContentModerationService: ObservableObject {
         }
     }
     
+    // MARK: - Helpers
+    
+    private func computeTextFlags(
+        sanitizedText: String,
+        harassmentThreshold: Double,
+        spamThreshold: Double
+    ) async throws -> ([FlagReason], Double) {
+        var reasons: [FlagReason] = []
+        var totalConfidence: Double = 0
+        var checks: Int = 0
+
+        // Create local references to avoid capture issues
+        let profanityService = self.profanityService
+        let textAnalysisService = self.textAnalysisService
+        
+        if let profanityResult = try await profanityService.checkProfanity(sanitizedText) {
+            reasons.append(profanityResult.reason)
+            totalConfidence += profanityResult.confidence
+            checks += 1
+        }
+
+        if let harassmentScore = try await textAnalysisService.detectHarassment(sanitizedText),
+           harassmentScore > harassmentThreshold {
+            reasons.append(.harassment)
+            totalConfidence += harassmentScore
+            checks += 1
+        }
+
+        if let spamScore = try await textAnalysisService.detectSpam(sanitizedText),
+           spamScore > spamThreshold {
+            reasons.append(.spam)
+            totalConfidence += spamScore
+            checks += 1
+        }
+
+        if textAnalysisService.containsPersonalInformation(sanitizedText) {
+            reasons.append(.personalInformation)
+            totalConfidence += 0.9
+            checks += 1
+        }
+
+        let avg = checks > 0 ? totalConfidence / Double(checks) : 0
+        return (reasons, avg)
+    }
+
+    private func computeImageFlags(
+        image: UIImage,
+        nsfwThreshold: Double,
+        violenceThreshold: Double,
+        qualityThreshold: Double
+    ) async throws -> ([FlagReason], Double) {
+        var reasons: [FlagReason] = []
+        var totalConfidence: Double = 0
+        var checks: Int = 0
+
+        // Create local reference to avoid capture issues
+        let imageService = self.imageService
+        
+        if let nsfwScore = try await imageService.detectNSFW(image) {
+            if nsfwScore > nsfwThreshold {
+                reasons.append(.inappropriateImage(type: .nsfw(confidence: nsfwScore)))
+            }
+            totalConfidence += nsfwScore
+            checks += 1
+        }
+
+        if let violenceScore = try await imageService.detectViolence(image),
+           violenceScore > violenceThreshold {
+            reasons.append(.inappropriateImage(type: .violence(confidence: violenceScore)))
+            totalConfidence += violenceScore
+            checks += 1
+        }
+
+        let qualityScore = try await imageService.assessImageQuality(image)
+        if qualityScore < qualityThreshold {
+            reasons.append(.inappropriateImage(type: .lowQuality(confidence: 1.0 - qualityScore)))
+            totalConfidence += (1.0 - qualityScore)
+            checks += 1
+        }
+
+        let avg = checks > 0 ? totalConfidence / Double(checks) : 0
+        return (reasons, avg)
+    }
+
+    private func computeHashtagFlags(
+        hashtags: [String]
+    ) async throws -> ([FlagReason], Double) {
+        var reasons: [FlagReason] = []
+        var totalConfidence: Double = 0
+        var checks: Int = 0
+
+        // Create local references to avoid capture issues
+        let profanityService = self.profanityService
+        let textAnalysisService = self.textAnalysisService
+        
+        for hashtag in hashtags {
+            if let profanityResult = try await profanityService.checkProfanity(hashtag) {
+                reasons.append(profanityResult.reason)
+                totalConfidence += profanityResult.confidence
+                checks += 1
+            }
+        }
+
+        if textAnalysisService.detectHashtagSpam(hashtags) {
+            reasons.append(.spam)
+            totalConfidence += 0.8
+            checks += 1
+        }
+
+        let avg = checks > 0 ? totalConfidence / Double(checks) : 0
+        return (reasons, avg)
+    }
+    
     // MARK: - Caching
     
     private func getCachedResult(for content: ContentType) -> CachedModerationResult? {
         let key = generateCacheKey(for: content)
         
-        return cacheQueue.sync {
-            guard let cached = cache.object(forKey: key as NSString),
-                  !cached.isExpired else {
-                cache.removeObject(forKey: key as NSString)
-                return nil
-            }
+        if let cached = cache.object(forKey: key as NSString), !cached.isExpired {
             return cached
         }
+        
+        // Remove expired entries immediately
+        cache.removeObject(forKey: key as NSString)
+        return nil
     }
     
     private func cacheResult(_ result: ModerationResult, for content: ContentType) {
         let key = generateCacheKey(for: content)
         let cached = CachedModerationResult(result: result, timestamp: Date())
-        
-        cacheQueue.async { [weak self] in
-            self?.cache.setObject(cached, forKey: key as NSString)
-        }
+        cache.setObject(cached, forKey: key as NSString)
     }
     
     private func generateCacheKey(for content: ContentType) -> String {
@@ -482,10 +526,8 @@ final class EnhancedContentModerationService: ObservableObject {
     }
     
     func clearCache() {
-        cacheQueue.async { [weak self] in
-            self?.cache.removeAllObjects()
-            self?.logger.info("Content moderation cache cleared")
-        }
+        cache.removeAllObjects()
+        logger.info("Content moderation cache cleared")
     }
     
     // MARK: - Cleanup
@@ -499,7 +541,7 @@ final class EnhancedContentModerationService: ObservableObject {
 
 // MARK: - Supporting Types
 
-private class CachedModerationResult {
+private final class CachedModerationResult: @unchecked Sendable {
     let result: ModerationResult
     let timestamp: Date
     
@@ -514,7 +556,7 @@ private class CachedModerationResult {
     }
 }
 
-struct ModerationStatistics {
+struct ModerationStatistics: Sendable {
     private(set) var totalModerations: Int = 0
     private(set) var approvedCount: Int = 0
     private(set) var flaggedCount: Int = 0
@@ -546,7 +588,7 @@ struct ModerationStatistics {
     }
 }
 
-enum ContentModerationError: LocalizedError {
+enum ContentModerationError: LocalizedError, Sendable {
     case serviceUnavailable
     case modelNotLoaded
     case invalidContent
@@ -572,3 +614,6 @@ enum ContentModerationError: LocalizedError {
 // EnhancedImageModerationService - implemented in EnhancedImageModerationService.swift  
 // TextAnalysisService - implemented in TextAnalysisService.swift
 // URLValidationService - implemented in URLValidationService.swift
+
+
+

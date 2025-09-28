@@ -71,53 +71,6 @@ enum EventStatus: String, CaseIterable, Codable {
     }
 }
 
-// MARK: - Event Category
-enum EventCategory: String, CaseIterable, Codable {
-    case music = "music"
-    case food = "food"
-    case sports = "sports"
-    case art = "art"
-    case networking = "networking"
-    case social = "social"
-    case education = "education"
-    case wellness = "wellness"
-    case nightlife = "nightlife"
-    case outdoor = "outdoor"
-    case other = "other"
-    
-    var displayName: String {
-        switch self {
-        case .music: return "Music"
-        case .food: return "Food & Dining"
-        case .sports: return "Sports"
-        case .art: return "Art & Culture"
-        case .networking: return "Networking"
-        case .social: return "Social"
-        case .education: return "Education"
-        case .wellness: return "Health & Wellness"
-        case .nightlife: return "Nightlife"
-        case .outdoor: return "Outdoor"
-        case .other: return "Other"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .music: return "music.note"
-        case .food: return "fork.knife"
-        case .sports: return "sportscourt"
-        case .art: return "paintpalette"
-        case .networking: return "person.3"
-        case .social: return "heart"
-        case .education: return "book"
-        case .wellness: return "leaf"
-        case .nightlife: return "moon.stars"
-        case .outdoor: return "mountain.2"
-        case .other: return "ellipsis.circle"
-        }
-    }
-}
-
 // MARK: - Enhanced Event Model
 struct Event: Identifiable, Hashable, Codable {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "Event")
@@ -136,7 +89,6 @@ struct Event: Identifiable, Hashable, Codable {
     private var _date: String = ""
     private var _timeRange: String = ""
     private var _location: String = ""
-    private var _category: EventCategory?
     
     // MARK: - Media and Content
     private(set) var images: [String] = []
@@ -155,10 +107,22 @@ struct Event: Identifiable, Hashable, Codable {
     private(set) var createdAt: Date = Date()
     private(set) var updatedAt: Date = Date()
     
+    // MARK: - Stripe Integration
+    private(set) var stripeProductId: String?
+    private(set) var stripeConnectedAccountId: String?
+    
     // MARK: - Computed Properties
+    var isUserGenerated: Bool {
+        !createdBy.isEmpty
+    }
+    
+    var isPlatformGenerated: Bool {
+        createdBy.isEmpty
+    }
+    
     var isComplete: Bool {
         !_title.isEmpty && !_description.isEmpty && !_date.isEmpty && 
-        !_timeRange.isEmpty && !_location.isEmpty && !createdBy.isEmpty
+        !_timeRange.isEmpty && !_location.isEmpty && (isUserGenerated ? !createdBy.isEmpty : true)
     }
     
     var likeCount: Int { likes.count }
@@ -174,12 +138,10 @@ struct Event: Identifiable, Hashable, Codable {
          date: String = "",
          timeRange: String = "",
          location: String = "",
-         category: EventCategory? = nil,
-         createdBy: String) throws {
+         createdBy: String = "") throws {
         
-        guard !createdBy.isEmpty else {
-            throw EventError.invalidCreatorUID(createdBy)
-        }
+        // Allow empty createdBy for platform-generated events
+        // Only validate if createdBy is provided but invalid
         
         self.id = id
         self.createdBy = createdBy
@@ -190,7 +152,19 @@ struct Event: Identifiable, Hashable, Codable {
         try setDate(date)
         try setTimeRange(timeRange)
         try setLocation(location)
-        self._category = category
+    }
+    
+    // MARK: - Empty Initializer for UI State
+    /// Creates an empty Event for use as initial UI state
+    static func empty(id: UUID = UUID(), createdBy: String = "") -> Event {
+        return Event(__createEmpty: id, createdBy: createdBy)
+    }
+    
+    /// Private initializer that bypasses validation for creating empty events
+    private init(__createEmpty id: UUID, createdBy: String) {
+        self.id = id
+        self.createdBy = createdBy
+        // All other properties are already initialized with empty defaults
     }
     
     // MARK: - Property Setters with Validation
@@ -294,14 +268,6 @@ struct Event: Identifiable, Hashable, Codable {
         updateTimestamp()
     }
     
-    var category: EventCategory? {
-        get { _category }
-        set {
-            _category = newValue
-            updateTimestamp()
-        }
-    }
-    
     // MARK: - Image Management
     mutating func addImage(_ image: UIImage) throws {
         guard newImages.count < Self.maxImages else {
@@ -327,6 +293,11 @@ struct Event: Identifiable, Hashable, Codable {
     
     mutating func removeImageURL(_ url: String) {
         images.removeAll { $0 == url }
+        updateTimestamp()
+    }
+    
+    mutating func setImageURLs(_ urls: [String]) {
+        images = urls
         updateTimestamp()
     }
     
@@ -475,6 +446,19 @@ struct Event: Identifiable, Hashable, Codable {
         createdBy == userID
     }
     
+    // MARK: - Stripe Management
+    mutating func setStripeProductInfo(productId: String, connectedAccountId: String) {
+        stripeProductId = productId
+        stripeConnectedAccountId = connectedAccountId
+        updateTimestamp()
+    }
+    
+    mutating func clearStripeProductInfo() {
+        stripeProductId = nil
+        stripeConnectedAccountId = nil
+        updateTimestamp()
+    }
+    
     // MARK: - Validation
     func validate() throws {
         if _title.isEmpty || _title.count > Self.maxTitleLength {
@@ -497,9 +481,8 @@ struct Event: Identifiable, Hashable, Codable {
             throw EventError.invalidLocation(_location)
         }
         
-        if createdBy.isEmpty {
-            throw EventError.invalidCreatorUID(createdBy)
-        }
+        // Only validate createdBy for user-generated events
+        // Platform-generated events can have empty createdBy
         
         if images.count + newImages.count > Self.maxImages {
             throw EventError.tooManyImages(images.count + newImages.count)
@@ -527,7 +510,6 @@ struct Event: Identifiable, Hashable, Codable {
         hasher.combine(_date)
         hasher.combine(_timeRange)
         hasher.combine(_location)
-        hasher.combine(_category)
         hasher.combine(images)
         hasher.combine(_hashtags)
         hasher.combine(_guests)
@@ -546,7 +528,6 @@ struct Event: Identifiable, Hashable, Codable {
         lhs._date == rhs._date &&
         lhs._timeRange == rhs._timeRange &&
         lhs._location == rhs._location &&
-        lhs._category == rhs._category &&
         lhs.images == rhs.images &&
         lhs._hashtags == rhs._hashtags &&
         lhs._guests == rhs._guests &&
@@ -555,6 +536,77 @@ struct Event: Identifiable, Hashable, Codable {
         lhs.reservations == rhs.reservations &&
         lhs.interactions == rhs.interactions &&
         lhs.createdBy == rhs.createdBy
+    }
+    
+    // MARK: - Custom Codable Implementation
+    private enum CodingKeys: String, CodingKey {
+        case id, _title, _description, _date, _timeRange, _location, _category
+        case images, _hashtags, _guests, priceDetails
+        case likes, reservations, interactions
+        case createdBy, createdAt, updatedAt
+        case stripeProductId, stripeConnectedAccountId
+        // Note: newImages is excluded from coding as UIImage isn't Codable
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        _title = try container.decode(String.self, forKey: ._title)
+        _description = try container.decode(String.self, forKey: ._description)
+        _date = try container.decode(String.self, forKey: ._date)
+        _timeRange = try container.decode(String.self, forKey: ._timeRange)
+        _location = try container.decode(String.self, forKey: ._location)
+        
+        images = try container.decode([String].self, forKey: .images)
+        _hashtags = try container.decode([String].self, forKey: ._hashtags)
+        _guests = try container.decode([Guest].self, forKey: ._guests)
+        priceDetails = try container.decode([PriceDetails].self, forKey: .priceDetails)
+        
+        likes = try container.decode(Set<String>.self, forKey: .likes)
+        reservations = try container.decode(Set<String>.self, forKey: .reservations)
+        interactions = try container.decode(Set<String>.self, forKey: .interactions)
+        
+        createdBy = try container.decode(String.self, forKey: .createdBy)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        
+        // Stripe fields (optional)
+        stripeProductId = try container.decodeIfPresent(String.self, forKey: .stripeProductId)
+        stripeConnectedAccountId = try container.decodeIfPresent(String.self, forKey: .stripeConnectedAccountId)
+        
+        // newImages is not decoded - remains empty array
+        newImages = []
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(_title, forKey: ._title)
+        try container.encode(_description, forKey: ._description)
+        try container.encode(_date, forKey: ._date)
+        try container.encode(_timeRange, forKey: ._timeRange)
+        try container.encode(_location, forKey: ._location)
+        
+        try container.encode(images, forKey: .images)
+        try container.encode(_hashtags, forKey: ._hashtags)
+        try container.encode(_guests, forKey: ._guests)
+        try container.encode(priceDetails, forKey: .priceDetails)
+        
+        try container.encode(likes, forKey: .likes)
+        try container.encode(reservations, forKey: .reservations)
+        try container.encode(interactions, forKey: .interactions)
+        
+        try container.encode(createdBy, forKey: .createdBy)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        
+        // Stripe fields (optional)
+        try container.encodeIfPresent(stripeProductId, forKey: .stripeProductId)
+        try container.encodeIfPresent(stripeConnectedAccountId, forKey: .stripeConnectedAccountId)
+        
+        // newImages is not encoded as UIImage isn't Codable
     }
 }
 

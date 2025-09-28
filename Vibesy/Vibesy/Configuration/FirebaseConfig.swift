@@ -8,9 +8,18 @@ import Firebase
 import FirebaseFirestore
 import os.log
 
-enum Environment {
+enum Environment: CustomStringConvertible {
     case development
     case production
+    
+    var description: String {
+        switch self {
+        case .development:
+            return "development"
+        case .production:
+            return "production"
+        }
+    }
 }
 
 enum FirebaseConfigError: Error {

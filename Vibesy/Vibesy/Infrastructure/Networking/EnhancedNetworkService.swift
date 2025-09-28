@@ -129,7 +129,7 @@ class NetworkConnectivityMonitor: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        monitor.cancel()
     }
     
     private func startMonitoring() {
@@ -372,6 +372,7 @@ final class EnhancedNetworkService: ObservableObject {
         guard offlineQueue.count < maxOfflineRequests else {
             logger.warning("Offline queue is full, dropping oldest request")
             offlineQueue.removeFirst()
+            return
         }
         
         let offlineRequest = OfflineRequest(
@@ -387,7 +388,7 @@ final class EnhancedNetworkService: ObservableObject {
     private func processOfflineQueue() async {
         guard !offlineQueue.isEmpty else { return }
         
-        logger.info("Processing \(offlineQueue.count) offline requests")
+        logger.info("Processing \(self.offlineQueue.count) offline requests")
         
         var processedIndices: [Int] = []
         

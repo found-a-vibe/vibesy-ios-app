@@ -104,21 +104,9 @@ final class EventModel: ObservableObject {
             throw EventModelError.invalidUserID(userId)
         }
         
-        do {
-            newEvent = try Event(
-                id: UUID(),
-                title: "",
-                description: "",
-                date: "",
-                timeRange: "",
-                location: "",
-                createdBy: userId
-            )
-            Self.logger.debug("New event created for user: \(userId)")
-        } catch {
-            Self.logger.error("Failed to create new event: \(error.localizedDescription)")
-            throw EventModelError.serviceFailed(error)
-        }
+        // Use the empty Event initializer to avoid validation errors
+        newEvent = Event.empty(createdBy: userId)
+        Self.logger.debug("New event created for user: \(userId)")
     }
     
     func clearNewEvent() {
@@ -360,13 +348,13 @@ final class EventModel: ObservableObject {
         }
     }
     
-    func filterEventsByCategory(_ category: EventCategory?) -> [Event] {
-        guard let category = category else {
-            return events
-        }
-        
-        return events.filter { $0.category == category }
-    }
+//    func filterEventsByCategory(_ category: EventCategory?) -> [Event] {
+//        guard let category = category else {
+//            return events
+//        }
+//        
+//        return events.filter { $0.category == category }
+//    }
     
     // MARK: - Utility Methods
     func getEvent(byId id: UUID) -> Event? {

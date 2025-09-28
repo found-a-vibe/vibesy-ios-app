@@ -11,7 +11,7 @@ import os.log
 
 // MARK: - Enhanced Profanity Service
 
-final class EnhancedProfanityService {
+final class EnhancedProfanityService: @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -269,7 +269,7 @@ final class EnhancedProfanityService {
         // Load profanity wordlists from bundle or initialize with basic sets
         profanityWordlists = loadProfanityWordlists()
         
-        logger.info("Loaded profanity wordlists for \(profanityWordlists.keys.count) languages")
+        logger.info("Loaded profanity wordlists for \(self.profanityWordlists.keys.count) languages")
     }
     
     private func loadProfanityWordlists() -> [String: Set<String>] {

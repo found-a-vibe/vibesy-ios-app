@@ -11,7 +11,7 @@ import os.log
 
 // MARK: - URL Validation Service
 
-final class URLValidationService {
+final class URLValidationService: @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -409,7 +409,7 @@ final class URLValidationService {
             "scam-website.org"
         ])
         
-        logger.info("Loaded \(maliciousDomains.count) malicious domains")
+        logger.info("Loaded \(self.maliciousDomains.count) malicious domains")
     }
     
     private func setupScamPatterns() {
@@ -432,13 +432,15 @@ final class URLValidationService {
             "fraud", "hack", "exploit", "suspicious"
         ])
         
-        logger.info("Loaded \(scamPatterns.count) scam patterns")
+        logger.info("Loaded \(self.scamPatterns.count) scam patterns")
     }
     
     private func setupNetworkMonitoring() {
-        monitor.pathUpdateHandler = { [weak self] path in
+        monitor.pathUpdateHandler = { path in
+            // Network monitoring - log directly to avoid sendable capture issues
             if path.status != .satisfied {
-                self?.logger.warning("Network path not satisfied - URL validation may be limited")
+                let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "URLValidation")
+                logger.warning("Network path not satisfied - URL validation may be limited")
             }
         }
         monitor.start(queue: monitorQueue)
@@ -550,3 +552,14 @@ enum URLValidationError: LocalizedError {
         }
     }
 }
+
+// MARK: - Concurrency Safety
+
+/// URLValidationService is used from concurrent contexts (task groups).
+/// The type is a class with internal synchronization via dedicated queues
+/// (e.g., `processingQueue`, `monitorQueue`) and uses thread-safe types
+/// (NSCache is thread-safe for its basic operations). We therefore declare
+/// it as `@unchecked Sendable` to satisfy Swift's Sendable checking for
+/// @Sendable closures capturing `self`.
+extension URLValidationService: @unchecked Sendable {}
+

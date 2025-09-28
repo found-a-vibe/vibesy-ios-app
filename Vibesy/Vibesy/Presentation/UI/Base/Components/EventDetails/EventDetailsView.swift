@@ -18,7 +18,7 @@ struct EventScreenView: View {
     
     @State private var isNewEventViewPresented: Bool = false
     
-    @State var event: Event = Event(id: UUID(), title: "", description: "", date: "", timeRange: "", location: "", images: [""], createdBy: "")
+    @State var event: Event = Event.empty()
     
     @State private var eventIsLiked: Bool = false
     @State private var eventIsReserved: Bool = false
@@ -33,13 +33,14 @@ struct EventScreenView: View {
     
     @State var showReservationConfirmation: Bool = false
     @State var showReservationCancellation: Bool = false
+    @State var showReservationSheet: Bool = false
     
     @State private var showWebView = false
     
     var navigate: ((_ direction: Direction) -> Void)? = nil
     
     func checkLikedEvents() {
-        let likedEvents = eventModel.currentEventDetails?.getLikes() ?? []
+        let likedEvents = Array(eventModel.currentEventDetails?.likes ?? [])
         let uid = authenticationModel.state.currentUser?.id
         
         if let uid {
@@ -51,7 +52,7 @@ struct EventScreenView: View {
     }
     
     func checkedReservedEvents() {
-        let reservedEvents = eventModel.currentEventDetails?.getReservations() ?? []
+        let reservedEvents = Array(eventModel.currentEventDetails?.reservations ?? [])
         let uid = authenticationModel.state.currentUser?.id
         
         if let uid {
@@ -196,17 +197,20 @@ struct EventScreenView: View {
                                 .animation(.easeInOut)
                         }
                     }
-                    .sheet(isPresented: $showWebView) {
-                        WebView(url: URL(string: event.priceDetails[0].link ?? "")!)
-                    }
+        .sheet(isPresented: $showWebView) {
+            WebView(url: URL(string: event.priceDetails[0].link ?? "")!)
+        }
+        .sheet(isPresented: $showReservationSheet) {
+            ReservationSheet(event: event)
+                .environmentObject(authenticationModel)
+        }
                     .padding()
                 }
                 
                 VStack(alignment: .center) {
                     if eventIsLiked && !enableAdminMode {
                         Button(action: {
-                            showReservationConfirmation.toggle()
-                            reserveEvent()
+                            showReservationSheet = true
                         }) {
                             Text("Reserve")
                                 .font(.abeezeeItalic(size: 12))
@@ -291,7 +295,7 @@ struct HeaderView: View {
     var body: some View {
         HStack {
             BackButtonView(systemImageName: systemImageName) {
-                eventModel.removeCurrentEventDetails()
+                eventModel.clearCurrentEventDetails()
                 if let navigate {
                     navigate(.back)
                 }
@@ -309,8 +313,8 @@ struct HeaderView: View {
                     Button("Delete", action: {
                         Task {
                             do {
-                                try await eventModel.deleteEvent()
-                                eventModel.removeCurrentEventDetails()
+                                try await eventModel.deleteCurrentEvent()
+                                eventModel.clearCurrentEventDetails()
                             } catch {
                             }
                         }
@@ -334,10 +338,24 @@ struct HeaderView: View {
         .sheet(isPresented: $showFlagContentView) {
             FlagContentView(showFlagContentView: $showFlagContentView) {
                 if let user = authenticationModel.state.currentUser, let currentEventDetails = eventModel.currentEventDetails {
-                    interactionModel.unlikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
-                    interactionModel.dislikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
-                    eventModel.events.removeAll(where: { $0.id.uuidString == currentEventDetails.id.uuidString})
-                    eventModel.removeCurrentEventDetails()
+                    Task {
+                        do {
+                            interactionModel.unlikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
+                            interactionModel.dislikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
+                            let event = eventModel.events.first(where: { $0.id.uuidString == currentEventDetails.id.uuidString })
+                            if let event {
+                                try await eventModel.deleteEvent(event)
+                            }
+                            await MainActor.run {
+                                eventModel.clearCurrentEventDetails()
+                            }
+                        } catch {
+                            // TODO: Consider surfacing this error to the user or logging.
+                            await MainActor.run {
+                                eventModel.clearCurrentEventDetails()
+                            }
+                        }
+                    }
                 }
             }
             .presentationDetents([.large])
@@ -640,5 +658,6 @@ struct EventUser: Identifiable {
 
 
 #Preview {
-    EventScreenView(event: Event(id: UUID(), title: "Drinks and Mingle", description: "String", date: "String", timeRange: "String", location: "String", hashtags: ["#music", "#vibes"], createdBy: "String"))
+    EventScreenView(event: try! Event(id: UUID(), title: "Drinks and Mingle", description: "String", date: "String", timeRange: "String", location: "String", createdBy: "String"))
 }
+

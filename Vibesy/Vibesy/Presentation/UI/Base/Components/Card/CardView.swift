@@ -13,8 +13,8 @@ struct CardView: View {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "CardView")
     
     // MARK: - Environment
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion: Bool
+    @SwiftUI.Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor: Bool
     
     // MARK: - Environment Objects
     @EnvironmentObject var authenticationModel: AuthenticationModel
@@ -191,7 +191,7 @@ private extension CardView {
     }
     
     func returnToCenter() {
-        withAnimation(reduceMotion ? .none : .easeOut) {
+        withAnimation(reduceMotion ? nil : .easeOut) {
             xOffset = 0
             degrees = 0
         }
@@ -201,7 +201,7 @@ private extension CardView {
         guard !isProcessingAction else { return }
         isProcessingAction = true
         
-        let animation = reduceMotion ? .none : .easeIn(duration: 0.3)
+        let animation: Animation? = reduceMotion ? nil : .easeIn(duration: 0.3)
         
         withAnimation(animation) {
             xOffset = -500
@@ -215,7 +215,7 @@ private extension CardView {
         guard !isProcessingAction else { return }
         isProcessingAction = true
         
-        let animation = reduceMotion ? .none : .easeIn(duration: 0.3)
+        let animation: Animation? = reduceMotion ? nil : .easeIn(duration: 0.3)
         
         withAnimation(animation) {
             xOffset = 500
@@ -330,11 +330,10 @@ private extension CardView {
         date: "2024-12-25",
         timeRange: "7:00 PM - 11:00 PM",
         location: "Sample Location",
-        category: .music,
         createdBy: "sample-user-id"
     )
     
-    return CardView(event: sampleEvent, alert: .constant(""))
+    CardView(event: sampleEvent, alert: .constant(""))
         .environmentObject(AuthenticationModel(authenticationService: MockAuthenticationService(), state: AppState()))
         .environmentObject(EventModel(service: MockEventService()))
         .environmentObject(UserProfileModel.mockUserProfileModel)
@@ -343,6 +342,23 @@ private extension CardView {
 
 // Mock service for preview
 struct MockInteractionService: InteractionService {
-    func likeEvent(userId: String, eventId: String) {}
-    func dislikeEvent(userId: String, eventId: String) {}
+    func likeEvent(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        completion(nil)
+    }
+    
+    func dislikeEvent(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        completion(nil)
+    }
+    
+    func unlikeEvent(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        completion(nil)
+    }
+    
+    func reserveEvent(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        completion(nil)
+    }
+    
+    func cancelEventReservation(uid: String, eventId: String, completion: @escaping (Error?) -> Void) {
+        completion(nil)
+    }
 }

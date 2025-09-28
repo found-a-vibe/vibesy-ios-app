@@ -6,7 +6,7 @@
 //
 
 protocol UserPasswordService {
-    func sendOTP(to email: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void)
-    func verifyOTP(for email: String, withOTP otp: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void)
-    func updatePassword(for uid: String, withNewPassword newPassword: String, completion: @escaping (Result<UserPasswordServiceResponse, Error>) -> Void)
+    func sendOTP(to email: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void)
+    func verifyOTP(for email: String, withOTP otp: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void)
+    func updatePassword(for uid: String, withNewPassword newPassword: String, completion: @escaping @Sendable (Result<UserPasswordServiceResponse, Error>) -> Void)
 }

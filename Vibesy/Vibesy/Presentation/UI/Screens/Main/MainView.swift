@@ -5,6 +5,7 @@
 //  Created by Alexander Cleoni on 12/14/24.
 //
 
+import Combine
 import SwiftUI
 import StreamChatSwiftUI
 import os.log
@@ -22,10 +23,10 @@ struct MainView: View {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "MainView")
     
     // MARK: - Environment
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    @Environment(\.colorScheme) private var colorScheme
+    @SwiftUI.Environment(\.scenePhase) private var scenePhase
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @SwiftUI.Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @SwiftUI.Environment(\.colorScheme) private var colorScheme
     
     // MARK: - Environment Objects
     @EnvironmentObject var authenticationModel: AuthenticationModel
@@ -158,7 +159,7 @@ struct MainView: View {
             Self.logger.debug("App entered background")
             
         @unknown default:
-            Self.logger.warning("Unknown scene phase: \(newPhase)")
+            Self.logger.warning("Unknown scene phase: \(String(describing: newPhase))")
         }
     }
     
@@ -241,9 +242,13 @@ struct MainView: View {
         } message: {
             Text(errorMessage)
         }
-        .onChange(of: eventModel.events.count, handleEventCountChange)
-        .onChange(of: scenePhase, handleScenePhaseChange)
-        .onChange(of: eventModel.errorMessage) { _, newError in
+        .onChange(of: eventModel.events.count) { oldValue, newValue in
+            handleEventCountChange(oldValue: oldValue, newValue: newValue)
+        }
+        .onChange(of: scenePhase) {_, newPhase in
+            handleScenePhaseChange(newPhase)
+        }
+        .onChange(of: eventModel.errorMessage) {_, newError in
             if let error = newError {
                 showError(error)
             }
@@ -258,27 +263,25 @@ struct MainView: View {
     // MARK: - Helper Views
     @ViewBuilder
     private func tabItemView(for index: Int) -> some View {
-        guard index < tabConfigs.count else {
+        if index >= tabConfigs.count {
             EmptyView()
-            return
-        }
-        
-        let config = tabConfigs[index]
-        
-        VStack {
-            Image(config.imageName)
-                .renderingMode(.template)
-                .accessibilityHidden(true)
-            
-            if !differentiateWithoutColor || selectedTab == index {
-                Text(config.title)
-                    .font(.caption2)
+        } else {
+            let config = tabConfigs[index]
+            VStack {
+                Image(config.imageName)
+                    .renderingMode(.template)
                     .accessibilityHidden(true)
+                
+                if !differentiateWithoutColor || selectedTab == index {
+                    Text(config.title)
+                        .font(.caption2)
+                        .accessibilityHidden(true)
+                }
             }
+            .accessibilityLabel(config.accessibilityLabel)
+            .accessibilityHint(config.accessibilityHint)
+            .accessibilityAddTraits(selectedTab == index ? .isSelected : [])
         }
-        .accessibilityLabel(config.accessibilityLabel)
-        .accessibilityHint(config.accessibilityHint)
-        .accessibilityAddTraits(selectedTab == index ? .isSelected : [])
     }
 }
 
@@ -331,24 +334,39 @@ struct TabIndicator: View {
 
 // MARK: - Mock Services for Preview
 struct MockAuthenticationService: AuthenticationService {
-    func signUp(email: String, password: String) -> AnyPublisher<AuthUser?, Error> {
-        Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+    func signUp(email: String, password: String) -> Future<AuthUser?, Error> {
+        Future { promise in
+            // Mock success case
+            promise(.success(nil))
+            // Or mock failure case:
+            // promise(.failure(AuthError.invalidCredentials))
+        }
     }
     
-    func signIn(email: String, password: String) -> AnyPublisher<AuthUser?, Error> {
-        Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+    func signIn(email: String, password: String) -> Future<AuthUser?, Error> {
+        Future { promise in
+            // Mock successful sign in with a user
+            let mockUser = AuthUser(id: "mock-id", email: email, isNewUser: false)
+            promise(.success(mockUser))
+        }
     }
     
-    func signOut() -> AnyPublisher<Void, Never> {
-        Just(()).eraseToAnyPublisher()
+    func signOut() -> Future<Void, Never> {
+        Future { promise in
+            promise(.success(()))
+        }
     }
     
-    func updateCurrentUserPassword(email: String, password: String, newPassword: String) -> AnyPublisher<Void, Error> {
-        Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+    func updateCurrentUserPassword(email: String, password: String, newPassword: String) -> Future<Void, Error> {
+        Future { promise in
+            promise(.success(()))
+        }
     }
     
-    func deleteCurrentUser(email: String, password: String) -> AnyPublisher<Void, Error> {
-        Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+    func deleteCurrentUser(email: String, password: String) -> Future<Void, Error> {
+        Future { promise in
+            promise(.success(()))
+        }
     }
 }
 
@@ -362,8 +380,28 @@ struct MockEventService: EventService {
 }
 
 struct MockFriendshipService: FriendshipService {
-    func sendFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
-    func acceptFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
-    func declineFriendRequest(from: String, to: String, completion: @escaping (Result<Void, Error>) -> Void) {}
-    func getFriendRequests(for userId: String, completion: @escaping (Result<[String], Error>) -> Void) {}
+    func sendFriendRequest(fromUserId: String, fromUserProfile: UserProfile, toUserId: String, message: String?, completion: @escaping (Error?) -> Void) {
+        // Mock successful send
+        completion(nil)
+    }
+    
+    func acceptFriendRequest(fromUserId: String, toUserId: String, completion: @escaping (Error?) -> Void) {
+        // Mock successful accept
+        completion(nil)
+    }
+    
+    func deleteFriendRequest(fromUserId: String, toUserId: String, completion: @escaping (Error?) -> Void) {
+        // Mock successful delete
+        completion(nil)
+    }
+    
+    func fetchPendingFriendRequests(userId: String, status: String, completion: @escaping ([FriendRequest]?, Error?) -> Void) {
+        // Mock empty friend requests
+        completion([], nil)
+    }
+    
+    func fetchFriendList(userId: String, completion: @escaping ([String]?, Error?) -> Void) {
+        // Mock empty friend list
+        completion([], nil)
+    }
 }

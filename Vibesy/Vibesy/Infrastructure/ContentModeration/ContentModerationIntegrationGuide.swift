@@ -24,7 +24,7 @@ struct ValidatedTextFieldView: View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Enter your message", text: $text)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .onChange(of: text) { newValue in
+                .onChange(of: text) { _, newValue in
                     validator.validateText(newValue)
                 }
             
@@ -263,7 +263,11 @@ struct ImageUploadView: View {
     @State private var isAnalyzing = false
     @State private var showingImagePicker = false
     
-    private let moderationService = EnhancedContentModerationService.shared
+    private var moderationService: EnhancedContentModerationService {
+        get async {
+            await EnhancedContentModerationService.shared
+        }
+    }
     
     var body: some View {
         VStack(spacing: 20) {
@@ -323,7 +327,8 @@ struct ImageUploadView: View {
         
         Task {
             do {
-                let result = try await moderationService.moderateContent(.image(image))
+                let service = await moderationService
+                let result = try await service.moderateContent(.image(image))
                 
                 await MainActor.run {
                     // Convert to ImageModerationResult for display
@@ -561,7 +566,11 @@ final class EventModerationManager: ObservableObject {
     
     @Published var canCreateEvent = false
     
-    private let moderationService = EnhancedContentModerationService.shared
+    private var moderationService: EnhancedContentModerationService {
+        get async {
+            await EnhancedContentModerationService.shared
+        }
+    }
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", 
                                category: "EventModeration")
     
@@ -604,7 +613,8 @@ final class EventModerationManager: ObservableObject {
     
     private func performTitleValidation(_ title: String) async {
         do {
-            let result = try await moderationService.moderateContent(.text(title))
+            let service = await moderationService
+            let result = try await service.moderateContent(.text(title))
             titleState = mapModerationResult(result)
         } catch {
             titleState = .error(error)
@@ -614,7 +624,8 @@ final class EventModerationManager: ObservableObject {
     
     private func performDescriptionValidation(_ description: String) async {
         do {
-            let result = try await moderationService.moderateContent(.text(description))
+            let service = await moderationService
+            let result = try await service.moderateContent(.text(description))
             descriptionState = mapModerationResult(result)
         } catch {
             descriptionState = .error(error)
@@ -628,7 +639,8 @@ final class EventModerationManager: ObservableObject {
             .filter { !$0.isEmpty }
         
         do {
-            let result = try await moderationService.moderateContent(.hashtags(hashtagArray))
+            let service = await moderationService
+            let result = try await service.moderateContent(.hashtags(hashtagArray))
             hashtagsState = mapModerationResult(result)
         } catch {
             hashtagsState = .error(error)
@@ -755,77 +767,94 @@ struct ModerationStatusRow: View {
 
 // MARK: Example 4: Batch Content Moderation
 
+@MainActor
 final class BatchModerationManager: ObservableObject {
     @Published var progress: Double = 0.0
     @Published var results: [BatchModerationItem] = []
     @Published var isProcessing = false
     
-    private let moderationService = EnhancedContentModerationService.shared
+    private var moderationService: EnhancedContentModerationService {
+        get async {
+            await EnhancedContentModerationService.shared
+        }
+    }
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", 
                                category: "BatchModeration")
     
     struct BatchModerationItem: Identifiable {
         let id = UUID()
+        let index: Int
         let content: ContentType
         let result: ModerationResult?
         let processingTime: TimeInterval?
         let error: Error?
     }
     
+    nonisolated(nonsending)
     func processBatch(_ contents: [ContentType]) async {
         await MainActor.run {
-            isProcessing = true
-            progress = 0.0
-            results = contents.map { BatchModerationItem(content: $0, result: nil, processingTime: nil, error: nil) }
+            self.isProcessing = true
+            self.progress = 0.0
+            self.results = contents.enumerated().map { index, content in
+                BatchModerationItem(index: index, content: content, result: nil, processingTime: nil, error: nil)
+            }
         }
-        
+
         let totalItems = contents.count
+        if totalItems == 0 {
+            await MainActor.run {
+                self.isProcessing = false
+            }
+            return
+        }
+
         var processedItems = 0
-        
+
         // Process in chunks to avoid overwhelming the system
         let chunkSize = 5
-        for chunk in contents.chunked(into: chunkSize) {
-            await withTaskGroup(of: (ContentType, ModerationResult?, TimeInterval?, Error?).self) { group in
-                for content in chunk {
-                    group.addTask { [weak self] in
+
+        // Create a local reference to the shared service to avoid repeatedly touching self
+        let service = await self.moderationService
+
+        for (chunkStart, chunk) in stride(from: 0, to: contents.count, by: chunkSize).map({ start in (start, Array(contents[start..<Swift.min(start + chunkSize, contents.count)])) }) {
+            await withTaskGroup(of: (Int, ContentType, ModerationResult?, TimeInterval?, Error?).self) { group in
+                for (offset, content) in chunk.enumerated() {
+                    let index = chunkStart + offset
+                    // Capture only immutable values; do not capture `self` inside the task
+                    group.addTask {
                         let startTime = CFAbsoluteTimeGetCurrent()
-                        
                         do {
-                            let result = try await self?.moderationService.moderateContent(content)
+                            let result = try await service.moderateContent(content)
                             let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-                            return (content, result, processingTime, nil)
+                            return (index, content, result, processingTime, nil)
                         } catch {
                             let processingTime = CFAbsoluteTimeGetCurrent() - startTime
-                            return (content, nil, processingTime, error)
+                            return (index, content, nil, processingTime, error)
                         }
                     }
                 }
-                
-                for await (content, result, processingTime, error) in group {
+
+                for await (index, content, result, processingTime, error) in group {
                     processedItems += 1
-                    
                     await MainActor.run {
-                        if let index = results.firstIndex(where: { 
-                            // Compare content (simplified)
-                            return true // In real implementation, compare actual content
-                        }) {
-                            results[index] = BatchModerationItem(
-                                content: content, 
-                                result: result, 
-                                processingTime: processingTime, 
+                        if index >= 0 && index < self.results.count {
+                            self.results[index] = BatchModerationItem(
+                                index: index,
+                                content: content,
+                                result: result,
+                                processingTime: processingTime,
                                 error: error
                             )
                         }
-                        
-                        progress = Double(processedItems) / Double(totalItems)
+                        self.progress = Double(processedItems) / Double(totalItems)
                     }
                 }
             }
         }
-        
+
         await MainActor.run {
-            isProcessing = false
-            logger.info("Batch moderation completed: \(results.count) items processed")
+            self.isProcessing = false
+            self.logger.info("Batch moderation completed: \(self.results.count) items processed")
         }
     }
 }
@@ -874,3 +903,4 @@ struct ImagePickerView: UIViewControllerRepresentable {
         }
     }
 }
+

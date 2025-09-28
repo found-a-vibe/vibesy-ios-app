@@ -43,7 +43,7 @@ class StripeAPIService: ObservableObject {
     // MARK: - Payment Methods
     
     /// Create a payment intent for ticket purchase
-    func createPaymentIntent(eventId: Int, quantity: Int, buyerEmail: String, buyerName: String?) async throws -> PaymentIntentResponse {
+    func createPaymentIntent(eventId: Int, quantity: Int, buyerEmail: String, buyerName: String?) async throws -> TicketPaymentIntentResponse {
         guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.paymentIntent)") else {
             throw APIError.invalidResponse
         }
@@ -65,7 +65,7 @@ class StripeAPIService: ObservableObject {
                 url: url,
                 body: bodyData,
                 headers: [:],
-                responseType: PaymentIntentResponse.self,
+                responseType: TicketPaymentIntentResponse.self,
                 retryConfig: .default
             )
         } catch {
@@ -101,11 +101,9 @@ class StripeAPIService: ObservableObject {
     
     /// Create Connect onboarding link for hosts
     func createConnectOnboardingLink(email: String, firstName: String?, lastName: String?) async throws -> ConnectOnboardingResponse {
-        let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectOnboardLink)")!
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectOnboardLink)") else {
+            throw APIError.invalidResponse
+        }
         
         let body = [
             "email": email,
@@ -115,60 +113,101 @@ class StripeAPIService: ObservableObject {
             "refresh_url": StripeConfig.connectRefreshURL
         ] as [String: Any]
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
+        do {
+            let bodyData = try JSONSerialization.data(withJSONObject: body)
+            
+            logger.info("Creating Connect onboarding link for \(email)")
+            
+            return try await networkService.post(
+                url: url,
+                body: bodyData,
+                headers: [:],
+                responseType: ConnectOnboardingResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to create Connect onboarding link: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
         }
-        
-        if httpResponse.statusCode >= 400 {
-            let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
-            throw APIError.serverError(errorResponse?.error.message ?? "Unknown error")
-        }
-        
-        return try JSONDecoder().decode(ConnectOnboardingResponse.self, from: data)
     }
     
     /// Get Connect account status for a host
     func getConnectStatus(email: String) async throws -> ConnectStatusResponse {
-        let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectStatus)/\(email)")!
-        
-        let (data, response) = try await session.data(from: url)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectStatus)/\(email)") else {
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode >= 400 {
-            let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
-            throw APIError.serverError(errorResponse?.error.message ?? "User not found")
+        do {
+            logger.info("Getting Connect status for \(email)")
+            
+            return try await networkService.get(
+                url: url,
+                headers: [:],
+                responseType: ConnectStatusResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to get Connect status: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
+    }
+    
+    /// Verify Connect onboarding completion
+    func verifyOnboardingComplete(email: String, accountId: String?) async throws -> ConnectStatusResponse {
+        guard let url = URL(string: "\(baseURL)/connect/verify-onboarding") else {
+            throw APIError.invalidResponse
         }
         
-        return try JSONDecoder().decode(ConnectStatusResponse.self, from: data)
+        var body: [String: Any] = ["email": email]
+        if let accountId = accountId {
+            body["account_id"] = accountId
+        }
+        
+        do {
+            let bodyData = try JSONSerialization.data(withJSONObject: body)
+            
+            logger.info("Verifying onboarding completion for \(email)")
+            
+            return try await networkService.post(
+                url: url,
+                body: bodyData,
+                headers: [:],
+                responseType: ConnectStatusResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to verify onboarding: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
     }
     
     /// Disconnect Stripe Connect account
     func disconnectStripe(email: String) async throws {
-        let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectDisconnect)")!
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body = ["email": email]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectDisconnect)") else {
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode >= 400 {
-            let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
-            throw APIError.serverError(errorResponse?.error.message ?? "Disconnect failed")
+        let body = ["email": email]
+        
+        do {
+            let bodyData = try JSONSerialization.data(withJSONObject: body)
+            
+            logger.info("Disconnecting Stripe for \(email)")
+            
+            let _: EmptyResponse = try await networkService.post(
+                url: url,
+                body: bodyData,
+                headers: [:],
+                responseType: EmptyResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to disconnect Stripe: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
         }
     }
     
@@ -176,38 +215,46 @@ class StripeAPIService: ObservableObject {
     
     /// Get tickets for an order
     func getOrderTickets(orderId: Int) async throws -> OrderTicketsResponse {
-        let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.orderTickets)/\(orderId)")!
-        
-        let (data, response) = try await session.data(from: url)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.orderTickets)/\(orderId)") else {
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode >= 400 {
-            let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
-            throw APIError.serverError(errorResponse?.error.message ?? "Order not found")
+        do {
+            logger.info("Getting tickets for order \(orderId)")
+            
+            return try await networkService.get(
+                url: url,
+                headers: [:],
+                responseType: OrderTicketsResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to get order tickets: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
         }
-        
-        return try JSONDecoder().decode(OrderTicketsResponse.self, from: data)
     }
     
     /// Verify a ticket by QR token
     func verifyTicket(token: String) async throws -> TicketVerificationResponse {
-        let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.ticketVerify)?token=\(token)")!
-        
-        let (data, response) = try await session.data(from: url)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.ticketVerify)?token=\(token)") else {
             throw APIError.invalidResponse
         }
         
-        if httpResponse.statusCode >= 400 {
-            let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
-            throw APIError.serverError(errorResponse?.error.message ?? "Invalid ticket")
+        do {
+            logger.info("Verifying ticket with token")
+            
+            return try await networkService.get(
+                url: url,
+                headers: [:],
+                responseType: TicketVerificationResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to verify ticket: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
         }
-        
-        return try JSONDecoder().decode(TicketVerificationResponse.self, from: data)
     }
 }
 
@@ -287,4 +334,10 @@ enum APIError: LocalizedError {
             return error.localizedDescription
         }
     }
+}
+
+// MARK: - Empty Response Model
+
+struct EmptyResponse: Codable {
+    // Empty struct for void API responses
 }

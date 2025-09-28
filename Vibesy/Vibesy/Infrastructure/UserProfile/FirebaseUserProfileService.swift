@@ -142,6 +142,8 @@ extension FirebaseUserProfileService {
             throw NSError(domain: "UserProfileParsing", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse user profile metadata"])
         }
         
+        // For now, use empty dictionaries as we need proper parsing logic for these complex types
+        // TODO: Implement proper parsing for FriendRequest and Friend objects from Firebase data
         return UserProfile(
             uid: uid,
             age: age,
@@ -150,8 +152,8 @@ extension FirebaseUserProfileService {
             interests: interests,
             pronouns: pronouns,
             profileImageUrl: profileImageUrl,
-            friendRequests: friendRequests ?? [:],
-            friends: friends ?? [:]
+            friendRequests: [:],  // Empty until proper parsing is implemented
+            friends: [:]          // Empty until proper parsing is implemented
         )
     }
 }

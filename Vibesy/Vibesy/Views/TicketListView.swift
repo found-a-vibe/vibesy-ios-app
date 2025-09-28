@@ -145,7 +145,7 @@ struct TicketCardView: View {
                     StatusBadge(status: ticket.status)
                     
                     if ticket.status == "used", let scannedAt = ticket.scannedAt {
-                        Text("Scanned")
+                        Text("Scanned at \(scannedAt)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

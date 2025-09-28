@@ -49,7 +49,7 @@ class UserProfileModel: ObservableObject {
                     self?.status = "Profile fetched"
                     self?.errorMessage = nil // Clear any previous errors
                     if let updatedImageUrl {
-                        self?.userProfile.profileImageUrl = updatedImageUrl
+                        self?.userProfile.updateProfileImageUrl(updatedImageUrl)
                     }
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription

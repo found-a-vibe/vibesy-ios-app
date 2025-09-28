@@ -5,16 +5,16 @@
 //  Created by Refactoring Bot on 12/19/24.
 //
 
-import Foundation
-import UIKit
-import CoreML
-import Vision
-import Accelerate
+@preconcurrency import Foundation
+@preconcurrency import UIKit
+@preconcurrency import CoreML
+@preconcurrency import Vision
+@preconcurrency import Accelerate
 import os.log
 
 // MARK: - Enhanced Image Moderation Service
 
-final class EnhancedImageModerationService {
+final class EnhancedImageModerationService: @unchecked Sendable {
     
     // MARK: - Properties
     
@@ -114,10 +114,18 @@ final class EnhancedImageModerationService {
     
     // MARK: - Private Implementation
     
-    private enum ModelType {
+    private enum ModelType: CustomStringConvertible {
         case nsfw
         case violence
         case quality
+        
+        var description: String {
+            switch self {
+            case .nsfw: return "NSFW"
+            case .violence: return "Violence"
+            case .quality: return "Quality"
+            }
+        }
     }
     
     private func performImageAnalysis(_ image: UIImage, modelType: ModelType) async throws -> Double? {
@@ -156,7 +164,7 @@ final class EnhancedImageModerationService {
     }
     
     private func performComprehensiveModeration(_ image: UIImage) async throws -> ImageModerationResult {
-        var result = ImageModerationResult(
+        let result = ImageModerationResult(
             nsfwScore: nil,
             violenceScore: nil,
             qualityScore: nil,
@@ -167,18 +175,30 @@ final class EnhancedImageModerationService {
         
         let startTime = CFAbsoluteTimeGetCurrent()
         
-        // Run all checks concurrently
-        async let nsfwTask = detectNSFW(image)
-        async let violenceTask = detectViolence(image)
-        async let qualityTask = assessImageQuality(image)
+        // Run all checks concurrently using async-let
+        async let nsfwScoreTask: Double? = {
+            do { return try await self.detectNSFW(image) } catch { return nil }
+        }()
+        async let violenceScoreTask: Double? = {
+            do { return try await self.detectViolence(image) } catch { return nil }
+        }()
+        async let qualityScoreTask: Double? = {
+            do { return try await self.assessImageQuality(image) } catch { return nil }
+        }()
         
-        do {
-            result.nsfwScore = try await nsfwTask
-            result.violenceScore = try await violenceTask
-            result.qualityScore = try await qualityTask
-        } catch {
-            logger.warning("Some image moderation checks failed: \(error.localizedDescription)")
-        }
+        let nsfwScoreLocal = await nsfwScoreTask
+        let violenceScoreLocal = await violenceScoreTask
+        let qualityScoreLocal = await qualityScoreTask
+        
+        // Optional: log failures if any are nil (best-effort)
+        if nsfwScoreLocal == nil { self.logger.warning("NSFW detection failed during async await") }
+        if violenceScoreLocal == nil { self.logger.warning("Violence detection failed during async await") }
+        if qualityScoreLocal == nil { self.logger.warning("Quality assessment failed during async await") }
+        
+        // Assign results
+        result.nsfwScore = nsfwScoreLocal ?? nil
+        result.violenceScore = violenceScoreLocal ?? nil
+        result.qualityScore = qualityScoreLocal ?? nil
         
         // Determine flags based on scores
         result.flags = determineFlags(from: result)
@@ -231,7 +251,7 @@ final class EnhancedImageModerationService {
     
     private func extractConfidenceFromPixelBuffer(_ observations: [VNPixelBufferObservation]) -> Double? {
         // Handle custom model outputs that return pixel buffers
-        guard let observation = observations.first else { return nil }
+        guard observations.first != nil else { return nil }
         
         // This would depend on the specific model output format
         // Placeholder implementation
@@ -546,13 +566,22 @@ final class EnhancedImageModerationService {
 
 // MARK: - Supporting Types
 
-struct ImageModerationResult {
+final class ImageModerationResult {
     var nsfwScore: Double?
     var violenceScore: Double?
     var qualityScore: Double?
     var flags: [ImageModerationFlag]
     var confidence: Double
     var processingTime: TimeInterval
+    
+    init(nsfwScore: Double? = nil, violenceScore: Double? = nil, qualityScore: Double? = nil, flags: [ImageModerationFlag] = [], confidence: Double = 0.0, processingTime: TimeInterval = 0.0) {
+        self.nsfwScore = nsfwScore
+        self.violenceScore = violenceScore
+        self.qualityScore = qualityScore
+        self.flags = flags
+        self.confidence = confidence
+        self.processingTime = processingTime
+    }
 }
 
 enum ImageModerationFlag {
@@ -581,3 +610,4 @@ enum ImageModerationError: LocalizedError {
         }
     }
 }
+

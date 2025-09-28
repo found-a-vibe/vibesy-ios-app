@@ -66,9 +66,11 @@ class StripeStatusManager: ObservableObject {
     
     /// Update UserProfile with current Stripe status
     func updateUserProfile(_ userProfile: inout UserProfile) {
-        userProfile.isHost = isHost
-        userProfile.stripeConnectId = stripeAccountId
-        userProfile.stripeOnboardingComplete = onboardingComplete
+        userProfile.updateStripeInfo(
+            connectId: stripeAccountId,
+            onboardingComplete: onboardingComplete,
+            isHost: isHost
+        )
     }
     
     /// Check if user can create paid events

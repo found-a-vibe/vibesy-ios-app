@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import Kingfisher
 
 struct NewEventView1: View {
     @SwiftUI.Environment(\.dismiss) var dismiss
@@ -63,37 +64,104 @@ struct NewEventView1: View {
                 // Post Button
                 Button(action: {
                     Task {
-                        // Check if event has pricing
-                        let hasPricing = !prices.isEmpty
-                        
-                        if hasPricing {
-                            // Validate Stripe onboarding for paid events
-                            let isOnboarded = await validateStripeOnboarding()
-                            if !isOnboarded {
-                                alertMessage = ("Stripe Setup Required", "To charge for events, you need to complete payment setup in Account Settings under Host Settings.")
-                                showAlert.toggle()
-                                return
-                            }
-                        }
-                        
                         // Existing validation and posting logic
                         if eventImages.count < 1 {
                             alertMessage = ("Event Image Required!", "Please upload at least one image of your event.")
                             showAlert.toggle()
                         } else {
-                            eventImages.forEach { image in
-                                eventModel.newEvent?.newImages?.append(image)
-                            }
-                            guestSpeakers.forEach { speaker in
-                                eventModel.newEvent?.guests.append(speaker)
-                            }
-                            prices.forEach { price in
-                                eventModel.newEvent?.priceDetails.append(price)
+                            // Attempt to merge into model's newEvent if present; otherwise just proceed to addEvent
+                            if var newEvent = eventModel.newEvent {
+                                let mergedImages = (newEvent.newImages) + eventImages
+                                mergedImages.forEach { try? newEvent.addImage($0) }
+                                // Debug: Check what we're working with
+                                print("🔍 DEBUG: Local prices array has \(prices.count) items")
+                                for (index, price) in prices.enumerated() {
+                                    print("🔍   Price \(index): \(price.title) - \(price.formattedPrice)")
+                                }
+                                print("🔍 DEBUG: Event priceDetails has \(newEvent.priceDetails.count) items before merge")
+                                
+                                // Merge guests and price details
+                                let mergedGuests = (newEvent.guests) + guestSpeakers
+                                let mergedPrices = (newEvent.priceDetails) + prices
+                                
+                                print("🔍 DEBUG: mergedPrices has \(mergedPrices.count) items")
+                                
+                                // Write back into the model if properties are mutable
+                                mergedGuests.forEach { try? newEvent.addGuest($0) }
+                                mergedPrices.forEach { 
+                                    print("🔍   Adding price detail: \($0.title) - \($0.formattedPrice)")
+                                    newEvent.addPriceDetail($0) 
+                                }
+                                eventModel.newEvent = newEvent
+                                
+                                print("🔍 DEBUG: Event priceDetails has \(newEvent.priceDetails.count) items after merge")
+                                
+                                // Check if event has pricing AFTER merging
+                                let hasPricing = !newEvent.priceDetails.isEmpty
+                                
+                                print("🔍 DEBUG: Event has \(newEvent.priceDetails.count) price details, hasPricing: \(hasPricing)")
+                                
+                                if hasPricing {
+                                    // Validate Stripe onboarding for paid events
+                                    let isOnboarded = await validateStripeOnboarding()
+                                    print("🔍 DEBUG: Stripe onboarding status: \(isOnboarded)")
+                                    if !isOnboarded {
+                                        alertMessage = ("Stripe Setup Required", "To charge for events, you need to complete payment setup in Account Settings under Host Settings.")
+                                        showAlert.toggle()
+                                        return
+                                    }
+                                }
+                                
+                                // Create Stripe products if this is a paid event
+                                if hasPricing, let userEmail = authenticationModel.state.currentUser?.email {
+                                    print("🔍 DEBUG: Starting Stripe product creation for user: \(userEmail)")
+                                    do {
+                                        // Get Stripe connected account ID from status manager
+                                        await stripeStatusManager.syncStripeStatus(email: userEmail)
+                                        
+                                        if let connectedAccountId = stripeStatusManager.stripeAccountId {
+                                            print("🔍 DEBUG: Using connected account ID: \(connectedAccountId)")
+                                            let stripeProductService = StripeProductService.shared
+                                            let stripeInfo = try await stripeProductService.createEventProductWithPrices(
+                                                event: newEvent,
+                                                connectedAccountId: connectedAccountId
+                                            )
+                                            
+                                            print("🎉 SUCCESS: Created Stripe product \(stripeInfo.productId) with \(stripeInfo.priceIds.count) prices")
+                                            
+                                            // Update the event with Stripe product information
+                                            newEvent.setStripeProductInfo(
+                                                productId: stripeInfo.productId,
+                                                connectedAccountId: stripeInfo.connectedAccountId
+                                            )
+                                            
+                                            // Update price details with Stripe price IDs
+                                            var updatedPriceDetails = newEvent.priceDetails
+                                            for (index, priceId) in stripeInfo.priceIds.enumerated() {
+                                                if index < updatedPriceDetails.count {
+                                                    updatedPriceDetails[index].setStripePriceId(priceId)
+                                                    print("🔄 Updated price detail \(index) with Stripe price ID: \(priceId)")
+                                                }
+                                            }
+                                            newEvent.updatePriceDetails(updatedPriceDetails)
+                                            
+                                            eventModel.newEvent = newEvent
+                                        } else {
+                                            alertMessage = ("Stripe Setup Error", "Unable to retrieve Stripe account information. Please check your account settings.")
+                                            showAlert.toggle()
+                                            return
+                                        }
+                                    } catch {
+                                        print("🚨 ERROR: Stripe integration failed - \(error.localizedDescription)")
+                                        print("🚨 Full error: \(error)")
+                                        alertMessage = ("Stripe Integration Error", "Failed to create Stripe product: \(error.localizedDescription)")
+                                        showAlert.toggle()
+                                        return
+                                    }
+                                }
                             }
                             isNewEventViewPresented = false
-                            Task {
-                                try await eventModel.addEvent()
-                            }
+                            Task { try await eventModel.addEvent() }
                         }
                     }
                 }) {
@@ -104,7 +172,7 @@ struct NewEventView1: View {
                         .foregroundColor(.white)
                         .cornerRadius(10)
                 }
-
+                
                 .padding(.horizontal)
             }
             .overlay(alignment: .center) {
@@ -133,17 +201,20 @@ struct NewEventView1: View {
                     .keyboardType(.decimalPad)
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
-                Button(action: addPrice) {
+                Button(action: {
+                    print("🔥 BUTTON TAPPED! Title: '\(priceTitle)', Price: '\(eventPrice)'")
+                    addPrice()
+                }) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(.sandstone)
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(prices, id: \.title) { price in
-                        
+                    ForEach(prices.indices, id: \.self) { index in
+                        let price = prices[index]
                         HStack {
-                            Text("\(price.title)\n$\(price.price)")
+                            Text("\(price.title)\n\(price.formattedPrice)")
                                 .multilineTextAlignment(.center)
                                 .font(.abeezeeItalic(size: 16))
                                 .padding(.vertical, 5)
@@ -154,7 +225,6 @@ struct NewEventView1: View {
                                     .foregroundColor(.sandstone)
                             }
                         }
-                        
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray))
                     }
@@ -181,13 +251,13 @@ struct NewEventView1: View {
                         .foregroundColor(.sandstone)
                 }
                 .disabled(speakerName.isEmpty)
-                .onTapGesture {
-                    if (speakerName.isEmpty) {
-                        alertMessage = ("Speaker Name Required!", "Please enter a name for the gueest speaker.")
-                        showAlert.toggle()
-                    }
-                }
                 .onChange(of: selectedGuestImages) { _, _ in
+                    guard !speakerName.isEmpty else {
+                        alertMessage = ("Speaker Name Required!", "Please enter a name for the guest speaker.")
+                        showAlert.toggle()
+                        selectedGuestImages.removeAll()
+                        return
+                    }
                     Task {
                         let loadedImages = await loadImages(from: selectedGuestImages)
                         if let lastImage = loadedImages.last {
@@ -198,14 +268,16 @@ struct NewEventView1: View {
             }
             ScrollView(.horizontal) {
                 HStack {
-                    ForEach(guestSpeakers, id: \.self) { speaker in
+                    ForEach(guestSpeakers, id: \.id) { speaker in
                         VStack(alignment: .center) {
-                            Image(uiImage: speaker.image!)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .clipped()
-                                .cornerRadius(8)
+                            if let url = speaker.getImageUrl {
+                                KFImage(url)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 100, height: 100)
+                                    .clipped()
+                                    .cornerRadius(8)
+                            }
                             HStack {
                                 Text("\(speaker.name)\n\(speaker.role)")
                                     .multilineTextAlignment(.center)
@@ -218,7 +290,6 @@ struct NewEventView1: View {
                                 }
                             }
                         }
-                        
                     }
                 }
             }
@@ -287,7 +358,7 @@ struct NewEventView1: View {
                 .foregroundStyle(.white)
                 .padding()
             }
-            .animation(.easeInOut)
+            .animation(.easeInOut, value: showAlert)
     }
     
     @MainActor
@@ -301,29 +372,26 @@ struct NewEventView1: View {
                         return nil
                     }
                     
-                    if let score = await uiImage.predictImage() {
-                        print("SCORE IS: ")
-                        print(score)
-                    }
-
-                    // 🔍 Run the NSFW check
-                    if let score = await uiImage.predictImage(), score <= 0.5 {
+                    // Run the NSFW check once
+                    let score = await uiImage.predictImage() ?? 1.0
+                    if score <= 0.5 {
                         return uiImage // Safe image
                     } else {
-                        // NSFW image - remove it from UI-bound array on main actor
                         await MainActor.run {
                             if let index = items.firstIndex(of: item) {
                                 innapropriateImageAlert = true
                                 alertMessage = ("NSFW Image Detected!", "One or more of your images was flagged for inappropriate content. For your safety and compliance, flagged images cannot be posted.")
                                 showAlert.toggle()
-                                selectedEventImages.remove(at: index)
+                                // Remove from both possible selections
+                                if selectedEventImages.indices.contains(index) { selectedEventImages.remove(at: index) }
+                                if selectedGuestImages.indices.contains(index) { selectedGuestImages.remove(at: index) }
                             }
                         }
                         return nil
                     }
                 }
             }
-
+            
             // Collect results
             var results: [UIImage] = []
             for await image in group {
@@ -331,7 +399,7 @@ struct NewEventView1: View {
                     results.append(image)
                 }
             }
-
+            
             return results
         }
     }
@@ -349,10 +417,67 @@ struct NewEventView1: View {
     }
     
     private func addPrice() {
-        guard !priceTitle.isEmpty, !eventPrice.isEmpty else { return }
-        prices.append(PriceDetails(title: priceTitle.aa_profanityFiltered("*"), price: eventPrice, link: ""))
-        priceTitle = ""
-        eventPrice = ""
+        print("🔍 addPrice() called - priceTitle: '\(priceTitle)', eventPrice: '\(eventPrice)'")
+        
+        guard !priceTitle.isEmpty, !eventPrice.isEmpty else { 
+            print("🚨 addPrice() failed - empty title or price")
+            return 
+        }
+        
+        print("🔍 Validation passed, processing price...")
+        
+        // Normalize and parse the price
+        let trimmed = eventPrice.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.replacingOccurrences(of: "$", with: "")
+        
+        print("🔍 Normalized price string: '\(normalized)'")
+        
+        // Convert string to Decimal
+        print("🔍 Attempting to convert '\(normalized)' to Decimal...")
+        
+        // Test various decimal formats
+        let testFormats = [normalized, normalized.replacingOccurrences(of: ",", with: ".")]
+        var decimal: Decimal?
+        
+        for format in testFormats {
+            if let d = Decimal(string: format) {
+                decimal = d
+                print("🎉 Successfully converted '\(format)' to Decimal: \(d)")
+                break
+            } else {
+                print("❌ Failed to convert '\(format)' to Decimal")
+            }
+        }
+        
+        guard let decimal = decimal else {
+            print("🚨 All conversion attempts failed for input: '\(eventPrice)'")
+            print("🚨 Normalized input: '\(normalized)'")
+            alertMessage = ("Invalid Price", "Please enter a valid price amount (e.g., 12.50).")
+            showAlert.toggle()
+            return
+        }
+        
+        print("🔍 Decimal conversion successful: \(decimal)")
+        
+        // Create PriceDetails instance
+        do {
+            let priceDetail = try PriceDetails(
+                title: priceTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                price: decimal,
+                currency: .usd, // Default to USD, can be made configurable later
+                type: .fixed
+            )
+            prices.append(priceDetail)
+            print("🎉 SUCCESSFULLY ADDED PRICE: \(priceDetail.title) - \(priceDetail.formattedPrice) (Total: \(prices.count))")
+            
+            // Clear input fields
+            priceTitle = ""
+            eventPrice = ""
+        } catch {
+            print("🚨 PriceDetails creation failed: \(error.localizedDescription)")
+            alertMessage = ("Invalid Price Details", error.localizedDescription)
+            showAlert.toggle()
+        }
     }
     
     private func removePrice(_ price: PriceDetails) {
@@ -361,9 +486,23 @@ struct NewEventView1: View {
     
     private func addSpeaker(image: UIImage) {
         guard !speakerName.isEmpty else { return }
-        guestSpeakers.append(Guest(id: UUID(), name: speakerName, role: speakerRole, image: image, imageUrl: nil))
-        speakerName = ""
-        speakerRole = ""
+        
+        // Create Guest instance
+        do {
+            let guest = try Guest(
+                name: speakerName.trimmingCharacters(in: .whitespacesAndNewlines),
+                role: speakerRole.isEmpty ? "Speaker" : speakerRole.trimmingCharacters(in: .whitespacesAndNewlines),
+                imageUrl: nil // For now, we're not uploading the image to get a URL
+            )
+            guestSpeakers.append(guest)
+            
+            // Clear input fields
+            speakerName = ""
+            speakerRole = ""
+        } catch {
+            alertMessage = ("Invalid Speaker Details", error.localizedDescription)
+            showAlert.toggle()
+        }
     }
     
     private func removeSpeaker(_ speaker: String) {

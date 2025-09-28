@@ -26,50 +26,6 @@ enum GuestError: LocalizedError {
     }
 }
 
-// MARK: - Guest Role Enum
-enum GuestRole: String, CaseIterable, Codable {
-    case host = "host"
-    case speaker = "speaker"
-    case performer = "performer"
-    case organizer = "organizer"
-    case sponsor = "sponsor"
-    case attendee = "attendee"
-    case vip = "vip"
-    case staff = "staff"
-    case volunteer = "volunteer"
-    case other = "other"
-    
-    var displayName: String {
-        switch self {
-        case .host: return "Host"
-        case .speaker: return "Speaker"
-        case .performer: return "Performer"
-        case .organizer: return "Organizer"
-        case .sponsor: return "Sponsor"
-        case .attendee: return "Attendee"
-        case .vip: return "VIP"
-        case .staff: return "Staff"
-        case .volunteer: return "Volunteer"
-        case .other: return "Other"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .host: return "person.crop.circle.fill"
-        case .speaker: return "mic.fill"
-        case .performer: return "theatermasks.fill"
-        case .organizer: return "person.2.badge.gearshape.fill"
-        case .sponsor: return "dollarsign.circle.fill"
-        case .attendee: return "person.fill"
-        case .vip: return "star.fill"
-        case .staff: return "person.badge.key.fill"
-        case .volunteer: return "hands.and.sparkles.fill"
-        case .other: return "person.circle"
-        }
-    }
-}
-
 // MARK: - Enhanced Guest Model
 struct Guest: Hashable, Codable, Identifiable {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "Guest")
@@ -81,7 +37,7 @@ struct Guest: Hashable, Codable, Identifiable {
     // MARK: - Properties
     let id: UUID
     private var _name: String
-    private var _role: GuestRole
+    private var _role: String
     private(set) var customRole: String?
     private(set) var imageUrl: String?
     private(set) var bio: String?
@@ -101,38 +57,25 @@ struct Guest: Hashable, Codable, Identifiable {
         }
     }
     
-    var role: GuestRole {
+    var role: String {
         get { _role }
         set {
             _role = newValue
             updateTimestamp()
         }
     }
+
     
-    var displayRole: String {
-        if _role == .other, let customRole = customRole, !customRole.isEmpty {
-            return customRole
-        }
-        return _role.displayName
-    }
-    
-    var roleIcon: String {
-        _role.icon
-    }
-    
-    var hasValidImageURL: Bool {
-        guard let url = imageUrl, !url.isEmpty else { return false }
-        return URL(string: url) != nil
+    var getImageUrl: URL? {
+        guard let url = imageUrl, !url.isEmpty else { return nil }
+        return URL(string: url)
     }
     
     // MARK: - Initializer
     init(id: UUID = UUID(),
          name: String,
-         role: GuestRole = .attendee,
-         customRole: String? = nil,
-         imageUrl: String? = nil,
-         bio: String? = nil,
-         socialLinks: [String: String] = [:]) throws {
+         role: String = "speaker",
+         imageUrl: String? = nil) throws {
         
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
               name.count <= Self.maxNameLength else {
@@ -142,10 +85,7 @@ struct Guest: Hashable, Codable, Identifiable {
         self.id = id
         self._name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         self._role = role
-        self.customRole = customRole?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.imageUrl = imageUrl
-        self.bio = bio?.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.socialLinks = socialLinks
     }
     
     // MARK: - Mutating Methods

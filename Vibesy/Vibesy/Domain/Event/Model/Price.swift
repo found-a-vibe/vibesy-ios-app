@@ -106,6 +106,9 @@ struct PriceDetails: Hashable, Codable, Identifiable {
     private(set) var createdAt: Date = Date()
     private(set) var updatedAt: Date = Date()
     
+    // MARK: - Stripe Integration
+    private(set) var stripePriceId: String?
+    
     // MARK: - Computed Properties
     var title: String {
         get { _title }
@@ -287,8 +290,8 @@ struct PriceDetails: Hashable, Codable, Identifiable {
         updateTimestamp()
     }
     
-    mutating func updateQuantity(max: Int?, sold: Int = 0) {
-        self.maxQuantity = max
+    mutating func updateQuantity(maxQuantity: Int?, sold: Int = 0) {
+        self.maxQuantity = maxQuantity
         self.soldQuantity = max(0, sold)
         updateTimestamp()
     }
@@ -300,6 +303,17 @@ struct PriceDetails: Hashable, Codable, Identifiable {
     
     mutating func decrementSoldQuantity(by amount: Int = 1) {
         soldQuantity = max(0, soldQuantity - max(0, amount))
+        updateTimestamp()
+    }
+    
+    // MARK: - Stripe Management
+    mutating func setStripePriceId(_ priceId: String) {
+        stripePriceId = priceId
+        updateTimestamp()
+    }
+    
+    mutating func clearStripePriceId() {
+        stripePriceId = nil
         updateTimestamp()
     }
     

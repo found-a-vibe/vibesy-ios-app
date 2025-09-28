@@ -38,7 +38,7 @@ struct ContentView: View {
                                     authenticationModel.connectUser(username: userProfileModel.userProfile.fullName, photoUrl: userProfileModel.userProfile.profileImageUrl)
                                 }
                             }
-                            eventModel.fetchEventFeed(uid: user.id)
+                            await eventModel.fetchEventFeed(uid: user.id)
                             notificationCenter.registerForPushNotifications()
                         }
                     }

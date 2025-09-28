@@ -76,7 +76,11 @@ struct HostManagementView: View {
                 HostOnboardingView(
                     userEmail: user.email,
                     firstName: nil, // AuthUser doesn't have firstName
-                    lastName: nil   // AuthUser doesn't have lastName
+                    lastName: nil,  // AuthUser doesn't have lastName
+                    onCompletion: {
+                        // Refresh the Stripe status when onboarding completes
+                        refreshStripeStatus(forceRefresh: true)
+                    }
                 )
             }
         }

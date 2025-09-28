@@ -7,12 +7,6 @@
 
 import FirebaseFirestore
 
-struct FriendRequest: Hashable {
-    let fromUserId: String
-    let fromUserName: String
-    let fromUserProfilePictureUrl: String
-    let timestamp: Date
-}
 
 struct FirebaseFriendshipManager {
     func sendFriendRequest(fromUserId: String, fromUserProfile: UserProfile, toUserId: String, message: String?, completion: @escaping (Error?) -> Void) {
@@ -125,10 +119,12 @@ struct FirebaseFriendshipManager {
                        let timestamp = (data["timestamp"] as? Timestamp)?.dateValue() {
                         
                         let friendRequest = FriendRequest(
-                            fromUserId: fromUserId,
-                            fromUserName: fromUserName,
-                            fromUserProfilePictureUrl: fromUserProfilePictureUrl,
-                            timestamp: timestamp
+                            id: fromUserId,
+                            senderUID: fromUserId,
+                            senderName: fromUserName,
+                            senderImageURL: fromUserProfilePictureUrl,
+                            timestamp: timestamp,
+                            status: FriendRequest.FriendRequestStatus.pending
                         )
                         friendRequests.append(friendRequest)
                     }
