@@ -31,6 +31,50 @@ struct VibesyApp: App {
                 .environmentObject(friendshipModel)
                 .environmentObject(tabBarVisibilityModel)
                 .environmentObject(userPasswordModel)
+                .onOpenURL { url in
+                    handleIncomingURL(url)
+                }
+        }
+    }
+    
+    // MARK: - URL Handling
+    private func handleIncomingURL(_ url: URL) {
+        print("📱 Received URL: \(url.absoluteString)")
+        
+        guard url.scheme == "vibesy" else {
+            print("⚠️ Unrecognized URL scheme: \(url.scheme ?? "nil")")
+            return
+        }
+        
+        switch url.host {
+        case "stripe":
+            handleStripeURL(url)
+        case "payment":
+            handlePaymentURL(url)
+        default:
+            print("⚠️ Unrecognized URL host: \(url.host ?? "nil")")
+        }
+    }
+    
+    private func handleStripeURL(_ url: URL) {
+        switch url.path {
+        case "/onboard_complete":
+            print("✅ Stripe Connect onboarding completed")
+            // The HostOnboardingView will handle this via .onOpenURL
+            
+        default:
+            print("⚠️ Unrecognized Stripe path: \(url.path)")
+        }
+    }
+    
+    private func handlePaymentURL(_ url: URL) {
+        switch url.path {
+        case "/complete":
+            print("✅ Payment completed")
+            // PaymentSheet will handle this automatically
+            
+        default:
+            print("⚠️ Unrecognized payment path: \(url.path)")
         }
     }
 }

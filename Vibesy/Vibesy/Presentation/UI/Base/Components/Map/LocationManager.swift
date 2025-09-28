@@ -7,11 +7,12 @@
 
 import SwiftUI
 import CoreLocation
-import MapKit
+@preconcurrency import MapKit
 // MARK: Combine Framework to watch Textfield Change
 import Combine
 
-class LocationManager: NSObject,ObservableObject,MKMapViewDelegate,CLLocationManagerDelegate{
+@MainActor
+class LocationManager: NSObject,ObservableObject,MKMapViewDelegate, @preconcurrency CLLocationManagerDelegate{
     // MARK: Properties
     @Published var mapView: MKMapView = .init()
     @Published var manager: CLLocationManager = .init()

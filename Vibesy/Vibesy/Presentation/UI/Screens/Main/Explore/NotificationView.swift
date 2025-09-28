@@ -57,12 +57,22 @@ struct NotificationView: View {
                 ForEach($friendshipModel.friendRequests, id: \.self) { $request in
                     if let request {
                         HStack(spacing: 12) {
-                            KFImage(URL(string: request.fromUserProfilePictureUrl))
-                                .resizable()
-                                .frame(width: 60, height: 60)
-                                .clipShape(Circle())
+                            if let urlString = request.senderImageURL, let url = URL(string: urlString) {
+                                KFImage(url)
+                                    .resizable()
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            } else {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .foregroundStyle(.gray)
+                                    )
+                                    .frame(width: 60, height: 60)
+                            }
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(request.fromUserName)
+                                Text(request.senderName)
                                     .font(.headline)
                                     .foregroundColor(.espresso)
                                 
@@ -74,7 +84,7 @@ struct NotificationView: View {
                                     Button(action: {
                                         // Edit Profile action
                                         if let id = authenticationModel.state.currentUser?.id {
-                                            friendshipModel.acceptFriendRequest(fromUserId: request.fromUserId, toUserId: id)
+                                            friendshipModel.acceptFriendRequest(fromUserId: request.senderUID, toUserId: id)
                                         }
                                     }) {
                                         Text("Accept")
@@ -89,7 +99,7 @@ struct NotificationView: View {
                                     Button(action: {
                                         // Edit Profile action
                                         if let id = authenticationModel.state.currentUser?.id {
-                                            friendshipModel.deleteFriendRequest(fromUserId: request.fromUserId, toUserId: id)
+                                            friendshipModel.deleteFriendRequest(fromUserId: request.senderUID, toUserId: id)
                                         }
                                         
                                     }) {

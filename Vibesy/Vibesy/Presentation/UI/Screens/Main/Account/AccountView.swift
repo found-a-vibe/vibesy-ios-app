@@ -36,11 +36,19 @@ struct AccountView: View {
     
     var body: some View {
         VStack {
-            Text("Account")
-                .font(.abeezeeItalic(size: 24))
-                .foregroundStyle(.espresso)
-                .frame(maxWidth: .infinity, alignment: .center)
-            
+            HStack {
+                Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Account")
+                    .font(.abeezeeItalic(size: 24))
+                    .foregroundStyle(.espresso)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Image(systemName: "line.horizontal.3")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .onTapGesture {
+                        accountPageCoordinator.push(page: .settingsView)
+                    }
+            }
             ForEach(loadAccountTabs()!, id: \.self) { tab in
                 RoundedRectangle(cornerRadius: 10)
                     .fill(.white)

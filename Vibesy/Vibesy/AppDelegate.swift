@@ -10,6 +10,9 @@ import FirebaseMessaging
 import StreamChat
 import StreamChatSwiftUI
 import SwiftUI
+// Add Stripe import - Add package first: https://github.com/stripe/stripe-ios
+@preconcurrency import StripePaymentSheet
+@preconcurrency import StripeCore
 
 class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
     let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Vibesy", category: "AppDelegate")
@@ -18,7 +21,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
     
     var chatClient: ChatClient = {
         //For the tutorial we use a hard coded api key and application group identifier
-        var config = ChatClientConfig(apiKey: .init("6ybcm9cjc35g"))
+        var config = ChatClientConfig(apiKey: .init("82jbxje682kj"))
         config.isLocalStorageEnabled = true
 
         var colors = ColorPalette()
@@ -30,6 +33,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
         return client
     }()
     
+    @MainActor
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         //Use Firebase library to configure APIs
         FirebaseApp.configure()
@@ -40,6 +44,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
         
         UNUserNotificationCenter.current().delegate = VibesyNotificationCenter.shared
         
+        StripeAPI.defaultPublishableKey = StripeConfig.publishableKey
+        
         streamChat = StreamChat(chatClient: chatClient)
         
         return true
@@ -49,3 +55,4 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
         Messaging.messaging().apnsToken = deviceToken
     }
 }
+

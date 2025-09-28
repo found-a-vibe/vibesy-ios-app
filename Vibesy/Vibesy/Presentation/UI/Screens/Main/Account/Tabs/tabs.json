@@ -15,7 +15,13 @@
         "destination": "reservedEvents"
     },
     {
+        "icon": "creditcard.circle",
+        "title": "Host Settings",
+        "destination": "hostSettings"
+    },
+    {
         "icon": "LogoutIcon",
-        "title": "Sign Out"
+        "title": "Sign Out",
+        "destination": null
     }
 ]

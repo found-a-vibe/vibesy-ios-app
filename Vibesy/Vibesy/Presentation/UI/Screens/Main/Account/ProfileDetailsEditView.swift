@@ -36,7 +36,7 @@ struct ProfileDetailsEditView: View {
                             navigate(.back)
                         }
                         if let user = authenticationModel.state.currentUser {
-                            userProfileModel.userProfile.pronouns = selection == "Select your Pronouns" ? "N/A" : selection
+                            userProfileModel.userProfile.updatePronouns(selection == "Select your Pronouns" ? "N/A" : selection)
                             userProfileModel.userProfile.interests.removeAll()
                             tags.forEach {
                                 if $0 != "" {
@@ -46,10 +46,13 @@ struct ProfileDetailsEditView: View {
                             userProfileModel.updateUserProfile(userId: user.id, image: selectedImage ?? nil)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     Text("Edit Profile")
                         .font(.abeezeeItalic(size: 24))
                         .foregroundStyle(.espresso)
                         .frame(maxWidth: .infinity, alignment: .center)
+                    Spacer()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 // Profile image
                 VStack {

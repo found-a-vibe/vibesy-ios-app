@@ -58,13 +58,19 @@ struct OTPVerificationView: View {
         
         userPasswordModel.verifyOTP(with: otpString) { result in
             if let status = try? result.get().status, status == "OK" {
-                homePageCoordinator.push(page: .updatePasswordView)
+                Task { @MainActor in
+                    homePageCoordinator.push(page: .updatePasswordView)
+                }
             } else if let response = try? result.get() {
-                self.errorMessage = response.description
-                self.showAlert.toggle()
+                Task { @MainActor in
+                    self.errorMessage = response.description
+                    self.showAlert.toggle()
+                }
             } else {
-                self.errorMessage = "Unexpected error verifying OTP."
-                self.showAlert.toggle()
+                Task { @MainActor in
+                    self.errorMessage = "Unexpected error verifying OTP."
+                    self.showAlert.toggle()
+                }
             }
         }
     }
@@ -73,15 +79,21 @@ struct OTPVerificationView: View {
         if let email = userPasswordModel.email {
             userPasswordModel.sendOTP(for: email) { result in
                 if let status = try? result.get().status, let description = try? result.get().description,  status == "OK" {
-                    self.showAlert.toggle()
-                    self.alertTitle = "OTP Sent"
-                    self.errorMessage = description
+                    Task { @MainActor in
+                        self.showAlert.toggle()
+                        self.alertTitle = "OTP Sent"
+                        self.errorMessage = description
+                    }
                 } else if let response = try? result.get() {
-                    self.errorMessage = response.description
-                    self.showAlert.toggle()
+                    Task { @MainActor in
+                        self.errorMessage = response.description
+                        self.showAlert.toggle()
+                    }
                 } else {
-                    self.errorMessage = "Unexpected error sending OTP to \(email)."
-                    self.showAlert.toggle()
+                    Task { @MainActor in
+                        self.errorMessage = "Unexpected error sending OTP to \(email)."
+                        self.showAlert.toggle()
+                    }
                 }
             }
         }
@@ -300,3 +312,4 @@ struct OTPVerificationView: View {
 #Preview {
     OTPVerificationView()
 }
+

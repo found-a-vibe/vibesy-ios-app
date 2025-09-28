@@ -148,7 +148,7 @@ struct MatchedUserDetailsView: View {
         .padding()
         .task {
             if let uid = userProfileModel.currentMatchedProfile.uid {
-                eventModel.getEventsByStatus(uid: uid, status: .likedEvents)
+                await eventModel.getEventsByStatus(uid: uid, status: .likedEvents)
             }
         }
         .onAppear {

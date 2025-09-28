@@ -15,8 +15,10 @@ struct CardStackView: View {
     @State private var alert = ""
         
     func reloadData() {
-        if let uid = authenticationModel.state.currentUser?.id {
-            eventModel.fetchEventFeed(uid: uid)
+        Task {
+            if let uid = authenticationModel.state.currentUser?.id {
+                await eventModel.fetchEventFeed(uid: uid)
+            }
         }
     }
     

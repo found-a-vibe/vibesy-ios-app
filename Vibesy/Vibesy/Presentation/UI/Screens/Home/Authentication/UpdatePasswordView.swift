@@ -23,19 +23,22 @@ struct UpdatePasswordView: View {
     @State private var showAlert: Bool = false
     
     private func handleSubmit() {
-        userPasswordModel.updatePassword(withNewPassword: input) { result in
-            if let status = try? result.get().status, status == "OK" {
-                if let email = userPasswordModel.email {
-                    authenticationModel.email = email
-                    authenticationModel.password = input
-                    authenticationModel.signIn()
+        let newPassword = input
+        userPasswordModel.updatePassword(withNewPassword: newPassword) { result in
+            Task { @MainActor in
+                if let status = try? result.get().status, status == "OK" {
+                    if let email = userPasswordModel.email {
+                        authenticationModel.email = email
+                        authenticationModel.password = newPassword
+                        authenticationModel.signIn()
+                    }
+                } else if let response = try? result.get() {
+                    self.errorMessage = response.description
+                    self.showAlert.toggle()
+                } else {
+                    self.errorMessage = "Unexpected error updating your password."
+                    self.showAlert.toggle()
                 }
-            } else if let response = try? result.get() {
-                self.errorMessage = response.description
-                self.showAlert.toggle()
-            } else {
-                self.errorMessage = "Unexpected error updating your password."
-                self.showAlert.toggle()
             }
         }
     }

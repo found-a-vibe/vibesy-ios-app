@@ -24,13 +24,17 @@ struct ProfileDetailsView: View {
                         navigate(.back)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Spacer()
-                Text(userProfileModel.userProfile.fullName.capitalized)
+                Text("My Profile")
                     .font(.abeezeeItalic(size: 24))
                     .foregroundStyle(.espresso)
                     .padding(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                
                 Spacer()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                
             }
             // Profile details
             VStack(spacing: 16) {
@@ -63,7 +67,7 @@ struct ProfileDetailsView: View {
                     
                     VStack(alignment: .leading, spacing: 10) {
                         // Name and details
-                        Text("Name: \(userProfileModel.userProfile.fullName.capitalized)")
+                        Text("Name: \(userProfileModel.userProfile.fullName)")
                             .font(.abeezeeItalic(size: 14))
                         Text("Age : \(userProfileModel.userProfile.age)")
                             .font(.abeezeeItalic(size: 14))

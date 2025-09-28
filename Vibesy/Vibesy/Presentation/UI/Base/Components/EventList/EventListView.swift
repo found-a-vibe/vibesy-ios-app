@@ -210,7 +210,7 @@ struct EventListView: View {
         }
         .task {
             if let uid = authenticationModel.state.currentUser?.id {
-                eventModel.getEventsByStatus(uid: uid, status: eventsByStatus)
+                await eventModel.getEventsByStatus(uid: uid, status: eventsByStatus)
             }
         }
     }

@@ -10,6 +10,8 @@ import SwiftUI
 ///
 /// This protocol requires conforming types to specify a `CoordinatorView`, which represents
 /// the main view managed by the coordinator.
+
+@MainActor
 protocol BaseCoordinator: AnyObject {
     associatedtype CoordinatorView: View
 }

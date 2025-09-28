@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-class FriendshipModel: ObservableObject {
+@MainActor
+final class FriendshipModel: ObservableObject {
     private let service: FriendshipService
     @Published var friendRequests: [FriendRequest?]
     @Published var friendList: [String?] = []
@@ -35,7 +36,7 @@ class FriendshipModel: ObservableObject {
                 print("Error sending Friend Request: \(error)")
             } else {
                 DispatchQueue.main.async {
-                    self.friendRequests.removeAll { $0?.fromUserId == fromUserId }
+                    self.friendRequests.removeAll { $0?.senderUID == fromUserId }
                 }
                 print("Friend Request sent successfully.")
             }
@@ -49,7 +50,7 @@ class FriendshipModel: ObservableObject {
                 print("Error sending Friend Request: \(error)")
             } else {
                 DispatchQueue.main.async {
-                    self.friendRequests.removeAll { $0?.fromUserId == fromUserId }
+                    self.friendRequests.removeAll { $0?.senderUID == fromUserId }
                 }
                 print("Friend Request sent successfully.")
             }
