@@ -27,6 +27,29 @@ struct FirebaseEventImageManager {
         return url.absoluteString
     }
     
+    // MARK: - Guest Image Upload
+    static func uploadGuestImage(
+        image: UIImage,
+        eventId: UUID,
+        guestId: UUID
+    ) async throws -> String {
+        // Precompute Data on main to avoid moving UIImage across executors
+        struct JPEGError: LocalizedError { var errorDescription: String? { "Could not make JPEG" } }
+        let imageData = try await MainActor.run {
+            guard let data = image.jpegData(compressionQuality: 0.9) else { throw JPEGError() }
+            return data
+        }
+        
+        let folder = "guest_images/\(eventId.uuidString.lowercased())"
+        
+        return try await uploadSingleImage(
+            data: imageData,
+            folder: folder,
+            id: guestId,
+            index: 0
+        )
+    }
+    
     // MARK: - Bulk
     static func uploadImages(images: [UIImage], folder: String, id: UUID) async throws -> [String] {
         // Precompute Data on main so we don't move UIImage across executors

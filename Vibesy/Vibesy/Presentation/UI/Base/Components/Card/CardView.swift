@@ -132,16 +132,6 @@ struct CardView: View {
     @ViewBuilder
     private var imageOverlays: some View {
         VStack {
-            // Image navigation overlay (only if multiple images)
-            if hasMultipleImages {
-                ImageScrollingOverlayView(
-                    currentImageIndex: $currentImageIndex,
-                    totalImageCount: imageCount - 1
-                )
-            }
-            
-            Spacer()
-            
             // Image indicators
             if hasMultipleImages {
                 CardImageIndicatorView(
@@ -150,7 +140,14 @@ struct CardView: View {
                 )
                 .padding()
             }
-            
+            // Image navigation overlay (only if multiple images)
+            if hasMultipleImages {
+                ImageScrollingOverlayView(
+                    currentImageIndex: $currentImageIndex,
+                    totalImageCount: imageCount - 1
+                )
+            }
+            Spacer()
             // Swipe action indicators
             SwipeActionIndicatorView(xOffset: $xOffset)
         }

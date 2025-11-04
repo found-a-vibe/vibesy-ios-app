@@ -14,6 +14,7 @@ struct NewEventView1: View {
     @EnvironmentObject var eventModel: EventModel
     @EnvironmentObject var authenticationModel: AuthenticationModel
     @StateObject private var stripeStatusManager = StripeStatusManager.shared
+    @StateObject private var validationModel = EventValidationModel()
     
     // Event Images
     @State private var selectedEventImages: [PhotosPickerItem] = []
@@ -22,6 +23,7 @@ struct NewEventView1: View {
     // Guest Images
     @State private var selectedGuestImages: [PhotosPickerItem] = []
     @State private var guestSpeakers: [Guest] = []
+    @State private var guestImages: [UUID: UIImage] = [:]  // Track images for each guest
     
     @State private var priceTitle: String = ""
     @State private var eventPrice: String = ""
@@ -64,8 +66,11 @@ struct NewEventView1: View {
                 // Post Button
                 Button(action: {
                     Task {
-                        // Existing validation and posting logic
-                        if eventImages.count < 1 {
+                        // Validate required images
+                        let imagesValid = validationModel.validateImages(eventImages)
+                        
+                        if !imagesValid {
+                            validationModel.showValidationErrors = true
                             alertMessage = ("Event Image Required!", "Please upload at least one image of your event.")
                             showAlert.toggle()
                         } else {
@@ -160,18 +165,32 @@ struct NewEventView1: View {
                                     }
                                 }
                             }
+                            
+                            // Debug guest images before sending to EventModel
+                            print("👥 DEBUG: About to post event with \(guestSpeakers.count) guests")
+                            print("🖼️ DEBUG: GuestImages dictionary has \(guestImages.count) entries")
+                            for (guestId, image) in guestImages {
+                                let guestName = guestSpeakers.first(where: { $0.id == guestId })?.name ?? "Unknown"
+                                print("👤 Guest ID: \(guestId) -> \(guestName) (Image size: \(image.size))")
+                            }
+                            
                             isNewEventViewPresented = false
-                            Task { try await eventModel.addEvent() }
+                            Task { try await eventModel.addEvent(guestImages: guestImages) }
                         }
                     }
                 }) {
                     Text("Post")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(.espresso)
+                        .background(
+                            validationModel.showValidationErrors && validationModel.hasError(for: "images") 
+                                ? Color.gray 
+                                : .espresso
+                        )
                         .foregroundColor(.white)
                         .cornerRadius(10)
                 }
+                .disabled(validationModel.showValidationErrors && validationModel.hasError(for: "images"))
                 
                 .padding(.horizontal)
             }
@@ -181,6 +200,36 @@ struct NewEventView1: View {
                 }
             }
             .padding(.top)
+        }
+        .onAppear {
+            // Check Stripe status on view load
+            if let userEmail = authenticationModel.state.currentUser?.email {
+                Task {
+                    await stripeStatusManager.syncStripeStatus(email: userEmail)
+                }
+            }
+            
+            // Populate existing event data when editing
+            if let currentEvent = eventModel.currentEventDetails {
+                print("📄 EDIT MODE: Populating NewEventView1 with existing event data")
+                print("📄 Event: \(currentEvent.title)")
+                print("📄 Existing price details count: \(currentEvent.priceDetails.count)")
+                
+                // Populate existing price details
+                prices = currentEvent.priceDetails
+                for (index, price) in prices.enumerated() {
+                    print("📄   Price \(index): \(price.title) - \(price.formattedPrice)")
+                }
+                
+                // Populate existing guests
+                guestSpeakers = currentEvent.guests
+                print("📄 Existing guests count: \(guestSpeakers.count)")
+                for guest in guestSpeakers {
+                    print("📄   Guest: \(guest.name) (\(guest.role))")
+                }
+            } else {
+                print("🆕 NEW EVENT MODE: No existing event data to populate")
+            }
         }
         .onTapGesture {
             hideKeyboard()
@@ -192,21 +241,68 @@ struct NewEventView1: View {
     @ViewBuilder
     private func priceDetailsSection() -> some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Price Details").font(.headline)
-            HStack(spacing: 10) {
-                TextField("Enter Price Title", text: $priceTitle)
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
-                TextField("Enter Event Price", text: $eventPrice)
-                    .keyboardType(.decimalPad)
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
-                Button(action: {
-                    print("🔥 BUTTON TAPPED! Title: '\(priceTitle)', Price: '\(eventPrice)'")
-                    addPrice()
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.sandstone)
+            HStack {
+                Text("Price Details").font(.headline)
+                Text("(Optional)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            if !stripeStatusManager.canCreatePaidEvents {
+                // Stripe connection required message
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Stripe Account Required")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
+                    Text("Must have a Stripe connected account to charge for events. Visit Host Settings in your account to connect to Stripe.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                HStack(spacing: 10) {
+                    TextField("Enter Price Title", text: $priceTitle)
+                        .padding()
+                        .fieldBorder(
+                            hasError: validationModel.hasError(for: "price"),
+                            showErrors: validationModel.showValidationErrors
+                        )
+                        .disabled(!stripeStatusManager.canCreatePaidEvents)
+                    
+                    TextField("Enter Event Price", text: $eventPrice)
+                        .keyboardType(.decimalPad)
+                        .padding()
+                        .fieldBorder(
+                            hasError: validationModel.hasError(for: "price"),
+                            showErrors: validationModel.showValidationErrors
+                        )
+                        .disabled(!stripeStatusManager.canCreatePaidEvents)
+                        .onChange(of: eventPrice) { _, _ in
+                            _ = validationModel.validatePrice(eventPrice)
+                        }
+                    
+                    Button(action: {
+                        print("🔥 BUTTON TAPPED! Title: '\(priceTitle)', Price: '\(eventPrice)'")
+                        addPrice()
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.sandstone)
+                    }
+                    .disabled(!stripeStatusManager.canCreatePaidEvents || priceTitle.isEmpty || eventPrice.isEmpty)
+                }
+                
+                if validationModel.hasError(for: "price") && validationModel.showValidationErrors {
+                    Text(validationModel.errorMessage(for: "price") ?? "")
+                        .font(.caption)
+                        .foregroundColor(.red)
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -246,7 +342,7 @@ struct NewEventView1: View {
                 TextField("Enter Role", text: $speakerRole)
                     .padding()
                     .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
-                PhotosPicker(selection: $selectedGuestImages, maxSelectionCount: 5, matching: .images) {
+                PhotosPicker(selection: $selectedGuestImages, maxSelectionCount: 1, matching: .images) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(.sandstone)
                 }
@@ -270,7 +366,14 @@ struct NewEventView1: View {
                 HStack {
                     ForEach(guestSpeakers, id: \.id) { speaker in
                         VStack(alignment: .center) {
-                            if let url = speaker.getImageUrl {
+                            if let image = guestImages[speaker.id] {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 100, height: 100)
+                                    .clipped()
+                                    .cornerRadius(8)
+                            } else if let url = speaker.getImageUrl {
                                 KFImage(url)
                                     .resizable()
                                     .scaledToFill()
@@ -300,17 +403,33 @@ struct NewEventView1: View {
     @ViewBuilder private func eventImagesSection() -> some View{
         // Event Images Picker
         VStack(alignment: .leading, spacing: 15) {
-            Text("Event Images")
-                .font(.headline)
+            HStack {
+                Text("Event Images")
+                    .font(.headline)
+                Text("*")
+                    .foregroundColor(.red)
+                    .font(.headline)
+            }
+            
             PhotosPicker("Upload Event Images", selection: $selectedEventImages, maxSelectionCount: 10, matching: .images)
                 .font(.subheadline)
                 .padding()
-                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
+                .fieldBorder(
+                    hasError: validationModel.hasError(for: "images"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 .onChange(of: selectedEventImages) { _, _ in
                     Task {
                         eventImages = await loadImages(from: selectedEventImages)
+                        _ = validationModel.validateImages(eventImages)
                     }
                 }
+            
+            if validationModel.hasError(for: "images") && validationModel.showValidationErrors {
+                Text(validationModel.errorMessage(for: "images") ?? "")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
             
             ScrollView(.horizontal) {
                 HStack {
@@ -419,45 +538,21 @@ struct NewEventView1: View {
     private func addPrice() {
         print("🔍 addPrice() called - priceTitle: '\(priceTitle)', eventPrice: '\(eventPrice)'")
         
-        guard !priceTitle.isEmpty, !eventPrice.isEmpty else { 
-            print("🚨 addPrice() failed - empty title or price")
+        guard !priceTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
+            alertMessage = ("Price Title Required", "Please enter a title for the price.")
+            showAlert.toggle()
             return 
         }
         
-        print("🔍 Validation passed, processing price...")
+        // Validate price using validation model
+        let priceValidation = validationModel.validatePrice(eventPrice)
         
-        // Normalize and parse the price
-        let trimmed = eventPrice.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = trimmed.replacingOccurrences(of: "$", with: "")
-        
-        print("🔍 Normalized price string: '\(normalized)'")
-        
-        // Convert string to Decimal
-        print("🔍 Attempting to convert '\(normalized)' to Decimal...")
-        
-        // Test various decimal formats
-        let testFormats = [normalized, normalized.replacingOccurrences(of: ",", with: ".")]
-        var decimal: Decimal?
-        
-        for format in testFormats {
-            if let d = Decimal(string: format) {
-                decimal = d
-                print("🎉 Successfully converted '\(format)' to Decimal: \(d)")
-                break
-            } else {
-                print("❌ Failed to convert '\(format)' to Decimal")
-            }
-        }
-        
-        guard let decimal = decimal else {
-            print("🚨 All conversion attempts failed for input: '\(eventPrice)'")
-            print("🚨 Normalized input: '\(normalized)'")
+        guard priceValidation.isValid, let decimal = priceValidation.decimal else {
+            validationModel.showValidationErrors = true
             alertMessage = ("Invalid Price", "Please enter a valid price amount (e.g., 12.50).")
             showAlert.toggle()
             return
         }
-        
-        print("🔍 Decimal conversion successful: \(decimal)")
         
         // Create PriceDetails instance
         do {
@@ -492,9 +587,16 @@ struct NewEventView1: View {
             let guest = try Guest(
                 name: speakerName.trimmingCharacters(in: .whitespacesAndNewlines),
                 role: speakerRole.isEmpty ? "Speaker" : speakerRole.trimmingCharacters(in: .whitespacesAndNewlines),
-                imageUrl: nil // For now, we're not uploading the image to get a URL
+                imageUrl: nil // Will be set after upload
             )
+            
+            // Store the image with the guest's ID for later upload
+            guestImages[guest.id] = image
             guestSpeakers.append(guest)
+            
+            print("✅ Added guest: \(guest.name) (ID: \(guest.id))")
+            print("🖼️ Stored image for guest ID: \(guest.id)")
+            print("📋 Total guests: \(guestSpeakers.count), Total images: \(guestImages.count)")
             
             // Clear input fields
             speakerName = ""
@@ -506,6 +608,10 @@ struct NewEventView1: View {
     }
     
     private func removeSpeaker(_ speaker: String) {
+        // Find the guest to get their ID for image cleanup
+        if let guest = guestSpeakers.first(where: { $0.name == speaker }) {
+            guestImages.removeValue(forKey: guest.id)
+        }
         guestSpeakers.removeAll { $0.name == speaker }
     }
 }

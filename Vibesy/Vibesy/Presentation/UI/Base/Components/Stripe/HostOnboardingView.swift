@@ -139,21 +139,6 @@ struct HostOnboardingView: View {
     }
 }
 
-struct PrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue)
-                    .opacity(configuration.isPressed ? 0.8 : 1.0)
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-    }
-}
-
 // MARK: - ViewModel
 
 @MainActor
@@ -331,39 +316,44 @@ class HostOnboardingViewModel: ObservableObject {
     private func verifyOnboardingCompletion(accountId: String?) async {
         guard let email = currentUserEmail else {
             print("❌ No user email stored for verification")
-            errorMessage = "Unable to verify onboarding completion"
+            await MainActor.run {
+                self.errorMessage = "Unable to verify onboarding completion"
+                self.isLoading = false
+            }
             return
         }
         
-        print("🔍 Verifying onboarding completion with backend...")
-        isLoading = true
+        print("🔍 Checking onboarding completion status...")
+        await MainActor.run {
+            self.isLoading = true
+        }
         
         do {
-            let response = try await apiService.verifyOnboardingComplete(
-                email: email,
-                accountId: accountId
-            )
+            // Use the reliable status endpoint directly
+            let response = try await apiService.getConnectStatus(email: email)
             
-            print("✅ Verification response: onboarding complete = \(response.onboardingComplete)")
+            print("✅ Status response: onboarding complete = \(response.onboardingComplete)")
+            print("📊 Account ID: \(response.accountId ?? "nil"), Has account: \(response.hasConnectAccount ?? false)")
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.onboardingComplete = response.onboardingComplete
                 self.isLoading = false
                 
                 if response.onboardingComplete {
-                    // Call completion callback when successfully verified
+                    print("✅ Onboarding verified as complete! Calling completion callback.")
                     self.completionCallback?()
                 } else {
-                    self.errorMessage = "Onboarding setup is still incomplete. Please try the setup process again."
+                    print("⚠️ Onboarding still incomplete according to status endpoint")
+                    self.errorMessage = "Setup is still in progress. Please complete the setup process or try again."
                 }
             }
             
         } catch {
-            print("❌ Failed to verify onboarding completion: \(error.localizedDescription)")
+            print("❌ Status check failed: \(error.localizedDescription)")
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.isLoading = false
-                self.errorMessage = "Unable to verify setup completion: \(error.localizedDescription)"
+                self.errorMessage = "Unable to verify setup completion. Please check your internet connection and try again."
             }
         }
     }

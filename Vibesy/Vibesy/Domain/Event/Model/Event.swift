@@ -120,6 +120,26 @@ struct Event: Identifiable, Hashable, Codable {
         createdBy.isEmpty
     }
     
+    /// Determines if this is a free event (user-generated with no price details)
+    var isFreeEvent: Bool {
+        isUserGenerated && priceDetails.isEmpty
+    }
+    
+    /// Determines if this event has external ticket links (any event with valid links)
+    var hasExternalTicketLinks: Bool {
+        priceDetails.contains { $0.hasValidLink }
+    }
+    
+    /// Determines if this event uses internal Stripe pricing (user-generated with price details but no external links)
+    var hasInternalPricing: Bool {
+        isUserGenerated && !priceDetails.isEmpty && !hasExternalTicketLinks
+    }
+    
+    /// Gets the first valid external link from price details
+    var firstExternalLink: String? {
+        priceDetails.first { $0.hasValidLink }?.link
+    }
+    
     var isComplete: Bool {
         !_title.isEmpty && !_description.isEmpty && !_date.isEmpty && 
         !_timeRange.isEmpty && !_location.isEmpty && (isUserGenerated ? !createdBy.isEmpty : true)

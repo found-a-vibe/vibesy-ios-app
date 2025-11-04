@@ -20,11 +20,11 @@ struct StripeConfig {
     
     // MARK: - Backend API Configuration
     #if DEBUG
-    static let backendURL = "http://10.20.226.15:3000"
+    static let backendURL = "https://one-time-password-service.onrender.com"
     #else
-    static let backendURL = "https://your-production-api.com"
+    static let backendURL = "https://one-time-password-service.onrender.com"
     #endif
-    
+
     // MARK: - Connect URLs
     // Note: Stripe requires valid HTTP/HTTPS URLs, not custom schemes
     // The web page will handle redirecting back to the app
@@ -36,11 +36,14 @@ struct StripeConfig {
         static let connectOnboardLink = "/connect/onboard-link"
         static let connectStatus = "/connect/status"
         static let connectDisconnect = "/connect/disconnect"
+        static let connectDashboard = "/connect/dashboard-link"
         static let paymentIntent = "/payments/intent"
         static let paymentConfig = "/payments/config"
         static let ticketVerify = "/tickets/verify"
         static let ticketQR = "/tickets/qr"
         static let orderTickets = "/tickets/order"
+        static let invoiceDetails = "/payments/invoice"
+        static let paymentReceipt = "/payments/receipt"
     }
 }
 
@@ -111,7 +114,7 @@ struct ConnectOnboardingResponse: Codable {
 
 struct ConnectStatusResponse: Codable {
     let success: Bool
-    let hasConnectAccount: Bool
+    let hasConnectAccount: Bool?
     let accountId: String?
     let onboardingComplete: Bool
     let role: String?
@@ -122,6 +125,30 @@ struct ConnectStatusResponse: Codable {
         case accountId = "account_id"
         case onboardingComplete = "onboarding_complete"
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        success = try container.decode(Bool.self, forKey: .success)
+        hasConnectAccount = try container.decodeIfPresent(Bool.self, forKey: .hasConnectAccount)
+        accountId = try container.decodeIfPresent(String.self, forKey: .accountId)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        
+        // Handle onboardingComplete more gracefully
+        if let onboardingValue = try? container.decodeIfPresent(Bool.self, forKey: .onboardingComplete) {
+            onboardingComplete = onboardingValue
+        } else {
+            // Default to false if the field is missing or can't be decoded
+            print("⚠️ Warning: onboarding_complete field missing or invalid, defaulting to false")
+            onboardingComplete = false
+        }
+    }
+}
+
+struct ConnectDashboardResponse: Codable {
+    let success: Bool
+    let url: String?
+    let message: String?
 }
 
 struct TicketInfo: Codable, Identifiable {
@@ -166,5 +193,116 @@ struct OrderInfo: Codable {
         case buyerEmail = "buyer_email"
         case amountCents = "amount_cents"
         case ticketCount = "ticket_count"
+    }
+}
+
+// MARK: - Invoice Models
+
+struct InvoiceResponse: Codable {
+    let success: Bool
+    let invoice: StripeInvoiceDetail?
+    let error: String?
+}
+
+struct StripeInvoiceDetail: Codable {
+    let id: String
+    let paymentIntentId: String?
+    let status: String
+    let amountDue: Int
+    let amountPaid: Int
+    let currency: String
+    let customerEmail: String?
+    let description: String?
+    let invoiceDate: String
+    let dueDate: String?
+    let receiptNumber: String?
+    let receiptURL: String?
+    let invoiceURL: String?
+    let lineItems: [InvoiceLineItem]
+    
+    enum CodingKeys: String, CodingKey {
+        case id, status, currency, description
+        case paymentIntentId = "payment_intent_id"
+        case amountDue = "amount_due"
+        case amountPaid = "amount_paid"
+        case customerEmail = "customer_email"
+        case invoiceDate = "invoice_date"
+        case dueDate = "due_date"
+        case receiptNumber = "receipt_number"
+        case receiptURL = "receipt_url"
+        case invoiceURL = "invoice_url"
+        case lineItems = "line_items"
+    }
+}
+
+struct InvoiceLineItem: Codable {
+    let description: String?
+    let quantity: Int
+    let unitAmount: Int
+    let amount: Int
+    let currency: String
+    
+    enum CodingKeys: String, CodingKey {
+        case description, quantity, amount, currency
+        case unitAmount = "unit_amount"
+    }
+}
+
+struct PaymentReceiptResponse: Codable {
+    let success: Bool
+    let receipt: PaymentReceiptDetail?
+    let error: String?
+}
+
+struct PaymentReceiptDetail: Codable {
+    let paymentIntentId: String
+    let receiptNumber: String?
+    let receiptURL: String?
+    let amountPaid: Int
+    let currency: String
+    let paymentMethod: String?
+    let paymentDate: String
+    let customerEmail: String?
+    let description: String?
+    let status: String
+    
+    enum CodingKeys: String, CodingKey {
+        case status, currency, description
+        case paymentIntentId = "payment_intent_id"
+        case receiptNumber = "receipt_number"
+        case receiptURL = "receipt_url"
+        case amountPaid = "amount_paid"
+        case paymentMethod = "payment_method"
+        case paymentDate = "payment_date"
+        case customerEmail = "customer_email"
+    }
+}
+
+// MARK: - QR Code Invoice Data
+
+struct QRInvoiceData: Codable {
+    let ticketToken: String
+    let invoiceId: String?
+    let paymentIntentId: String?
+    let receiptURL: String?
+    let amountPaid: Int
+    let currency: String
+    let paymentDate: String
+    let customerEmail: String?
+    let eventTitle: String
+    let ticketType: String?
+    let quantity: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case currency, quantity
+        case ticketToken = "ticket_token"
+        case invoiceId = "invoice_id"
+        case paymentIntentId = "payment_intent_id"
+        case receiptURL = "receipt_url"
+        case amountPaid = "amount_paid"
+        case paymentDate = "payment_date"
+        case customerEmail = "customer_email"
+        case eventTitle = "event_title"
+        case ticketType = "ticket_type"
     }
 }

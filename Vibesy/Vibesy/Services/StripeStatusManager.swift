@@ -45,7 +45,7 @@ class StripeStatusManager: ObservableObject {
             let response = try await apiService.getConnectStatus(email: email)
             
             // Update local state
-            hasConnectAccount = response.hasConnectAccount
+            hasConnectAccount = response.hasConnectAccount ?? false
             onboardingComplete = response.onboardingComplete
             stripeAccountId = response.accountId
             isHost = response.role == "host"
@@ -131,6 +131,37 @@ class StripeStatusManager: ObservableObject {
             
             // Update cache timestamp
             lastUpdateTime = Date()
+            
+        } catch {
+            errorMessage = error.localizedDescription
+            throw error
+        }
+    }
+    
+    /// Get Stripe Connect dashboard link for host
+    func getDashboardLink(email: String) async throws -> String? {
+        guard let accountId = stripeAccountId else {
+            throw APIError.serverError("No Stripe account ID available")
+        }
+        
+        guard canCreatePaidEvents else {
+            throw APIError.serverError("Stripe onboarding not complete")
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        defer {
+            isLoading = false
+        }
+        
+        do {
+            let response = try await apiService.getConnectDashboardLink(
+                email: email,
+                accountId: accountId
+            )
+            
+            return response.url
             
         } catch {
             errorMessage = error.localizedDescription

@@ -80,7 +80,10 @@ struct EventCard: View {
             .overlay {
                 KFImage(URL(string: image))
                     .resizable()
-                    .aspectRatio(1, contentMode: .fill)
+                    .aspectRatio(
+                        event.isUserGenerated ? 1 : nil,
+                        contentMode: event.isUserGenerated ? .fill : .fit
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay {
                         VStack {

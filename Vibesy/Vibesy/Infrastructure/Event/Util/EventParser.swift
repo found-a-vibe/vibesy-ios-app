@@ -36,12 +36,22 @@ struct EventParser {
             guard let guestID = parseUUID(from: guestDict["id"]),
                   let name = guestDict["name"] as? String,
                   let role = guestDict["role"] as? String,
-                  let imageUrlString = guestDict["imageUrl"] as? String else { return nil }
-            return try? Guest(id: guestID, name: name, role: role, imageUrl: imageUrlString) // Image loading handled elsewhere
+                  let imageUrlString = guestDict["imageUrl"] as? String else { 
+                print("⚠️ Failed to parse guest from: \(guestDict)")
+                return nil 
+            }
+            
+            let guest = try? Guest(id: guestID, name: name, role: role, imageUrl: imageUrlString)
+            print("👤 Parsed guest: \(name), Role: \(role), ImageURL: \(imageUrlString.isEmpty ? "[EMPTY]" : imageUrlString)")
+            return guest
         } ?? []
         
         // Parse price details
+        print("📊 EventParser: Parsing priceDetails from data...")
+        print("📊 Raw priceDetails data: \(data["priceDetails"] ?? "[nil]")")
+        
         let priceDetails = (data["priceDetails"] as? [[String: Any]])?.compactMap { priceDict -> PriceDetails? in
+            print("📊   Processing price dict: \(priceDict)")
             guard let title = priceDict["title"] as? String else { return nil }
             
             // Handle price as either String or Number from Firebase
@@ -76,12 +86,15 @@ struct EventParser {
                     priceDetail.setStripePriceId(stripePriceId)
                 }
                 
+                print("✅ Successfully parsed price detail: \(priceDetail.title) - \(priceDetail.formattedPrice)")
                 return priceDetail
             } catch {
-                print("Error creating PriceDetails: \(error)")
+                print("❌ Error creating PriceDetails: \(error)")
                 return nil
             }
         } ?? []
+        
+        print("📊 EventParser: Parsed \(priceDetails.count) price details total")
                 
         // Parse image URLs
         let imageUrls = parseStringArray(from: data["images"])
@@ -110,7 +123,11 @@ struct EventParser {
             
             for priceDetail in priceDetails {
                 event.addPriceDetail(priceDetail)
+                print("💰 Added price detail to event: \(priceDetail.title) - \(priceDetail.formattedPrice)")
             }
+            
+            print("🎉 EventParser: Final event has \(event.priceDetails.count) price details")
+            print("🔍 Event hasInternalPricing: \(event.hasInternalPricing)")
             
             // Set hashtags
             event.hashtags = hashtags

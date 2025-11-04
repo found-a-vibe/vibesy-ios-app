@@ -15,6 +15,7 @@ struct EventScreenView: View {
     @EnvironmentObject var userProfileModel: UserProfileModel
     @EnvironmentObject var interactionModel: InteractionModel
     @EnvironmentObject var authenticationModel: AuthenticationModel
+    @StateObject private var userOrdersService = UserOrdersService.shared
     
     @State private var isNewEventViewPresented: Bool = false
     
@@ -28,16 +29,47 @@ struct EventScreenView: View {
     var handleNavigation = false
     
     var enableAdminMode: Bool = false
+    var navigationSource: EventStatus? = nil
     
     var systemImageName: String? = nil
     
     @State var showReservationConfirmation: Bool = false
     @State var showReservationCancellation: Bool = false
     @State var showReservationSheet: Bool = false
+    @State private var showTicketListView: Bool = false
+    @State private var showPaidEventCancellationAlert: Bool = false
+    @State private var showReservationsView: Bool = false
     
     @State private var showWebView = false
+    @State private var reservedUserProfiles: [UserProfile] = []
     
     var navigate: ((_ direction: Direction) -> Void)? = nil
+    
+    // Computed property to check if current user is the event creator
+    var isCurrentUserEventCreator: Bool {
+        guard let currentUserId = authenticationModel.state.currentUser?.id else { return false }
+        return event.isCreatedBy(currentUserId)
+    }
+    
+    // Computed property to check if user has purchased tickets for this paid event
+    var hasPurchasedTickets: Bool {
+        guard let currentUserId = authenticationModel.state.currentUser?.id else { return false }
+        return event.hasInternalPricing && 
+               eventIsReserved && 
+               userOrdersService.hasPurchasedTickets(for: event.id.uuidString, userId: currentUserId)
+    }
+    
+    // Get the order ID for ticket viewing
+    var orderIdForTickets: Int? {
+        guard let currentUserId = authenticationModel.state.currentUser?.id else { return nil }
+        return userOrdersService.getOrderId(for: event.id.uuidString, userId: currentUserId)
+    }
+    
+    // Computed property to check if there's a bottom button showing
+    var hasBottomButton: Bool {
+        return (eventIsLiked && !enableAdminMode && !isCurrentUserEventCreator && !eventIsReserved) ||
+               (eventIsReserved && !isCurrentUserEventCreator)
+    }
     
     func checkLikedEvents() {
         let likedEvents = Array(eventModel.currentEventDetails?.likes ?? [])
@@ -97,6 +129,21 @@ struct EventScreenView: View {
         }
     }
     
+    func loadReservedUserProfiles() {
+        guard let userId = authenticationModel.state.currentUser?.id else { return }
+        let reservedUserIds = event.reservations
+        
+        if !reservedUserIds.isEmpty {
+            // Clear existing profiles first
+            reservedUserProfiles = []
+            
+            // Fetch profiles asynchronously - they will be updated via onReceive
+            userProfileModel.getMatchedUsersProfiles(userId: userId, userIds: reservedUserIds)
+        } else {
+            reservedUserProfiles = []
+        }
+    }
+    
     var image: String {
         if event.images.count > 0 {
             return event.images[0]
@@ -113,12 +160,12 @@ struct EventScreenView: View {
                 }
             }
             ZStack {
-                ScrollView {
+                ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 16) {
                         // Event Image
-                        EventImageView(title: event.title, eventImage: image, eventIsLiked: eventIsLiked, eventIsReserved: eventIsReserved, enableAdminMode: enableAdminMode, interactWithEvent: interactWithEvent)
+                        EventImageView(title: event.title, eventImage: image, eventIsLiked: eventIsLiked, eventIsReserved: eventIsReserved, enableAdminMode: enableAdminMode, isUserGenerated: event.isUserGenerated, interactWithEvent: interactWithEvent)
                         // Event Details
-                        EventDetailsView(description: event.description, location: event.location, date: event.date, timeRange: event.timeRange)
+                        EventDetailsView(description: event.description, location: event.location, date: event.date, timeRange: event.timeRange, likesCount: event.likeCount, reservationsCount: event.reservationCount)
                         // Tags
                         TagsView(tags: event.hashtags)
                         // Speaker/Guest Section
@@ -126,7 +173,7 @@ struct EventScreenView: View {
                             SpeakerGuestView(guests: event.guests)
                         }
                         
-                        PriceDetailsView(priceDetails: event.priceDetails, showWebView: $showWebView, eventIsReserved: $eventIsReserved)
+                        PriceDetailsView(event: event, showWebView: $showWebView, eventIsReserved: $eventIsReserved)
                         
                         // Footer Section
                         LikedUsersView(users: $userProfileModel.matchedProfiles) { direction in
@@ -135,6 +182,9 @@ struct EventScreenView: View {
                                 navigate(direction)
                             }
                         }
+                        
+                        // Add spacing for bottom button
+                        Spacer(minLength: hasBottomButton ? 80 : 20)
                     }
                     .overlay(alignment: .center) {
                         if showReservationConfirmation || showReservationCancellation {
@@ -197,34 +247,97 @@ struct EventScreenView: View {
                                 .animation(.easeInOut)
                         }
                     }
-        .sheet(isPresented: $showWebView) {
-            WebView(url: URL(string: event.priceDetails[0].link ?? "")!)
-        }
-        .sheet(isPresented: $showReservationSheet) {
-            ReservationSheet(event: event)
-                .environmentObject(authenticationModel)
-        }
-                    .padding()
-                }
-                
-                VStack(alignment: .center) {
-                    if eventIsLiked && !enableAdminMode {
-                        Button(action: {
-                            showReservationSheet = true
-                        }) {
-                            Text("Reserve")
-                                .font(.abeezeeItalic(size: 12))
-                                .foregroundColor(.white)
-                                .frame(width: 124, height: 28)
-                                .padding(2)
-                                .background(.espresso)
-                                .cornerRadius(8)
+                    .sheet(isPresented: $showReservationSheet) {
+                        ReservationSheet(
+                            event: event,
+                            onReservationSuccess: {
+                                // Call the existing reserveEvent function
+                                reserveEvent()
+                                // Update local state to show the event is now reserved
+                                eventIsReserved = true
+                                // Don't auto-dismiss the sheet - let user manually dismiss after viewing payment success
+                                // showReservationSheet = false
+                            }
+                        )
+                        .environmentObject(authenticationModel)
+                    }
+                    .sheet(isPresented: $showTicketListView) {
+                        if let orderId = orderIdForTickets {
+                            TicketListView(orderId: orderId)
+                        } else {
+                            Text("Unable to load tickets")
+                                .padding()
                         }
                     }
-                    
-                    if eventIsReserved {
+                    .sheet(isPresented: $showReservationsView) {
+                        EventReservationsView(
+                            event: event,
+                            reservedUserProfiles: reservedUserProfiles
+                        )
+                    }
+                }
+                .padding()
+            }
+            
+            VStack(alignment: .center) {
+                // Show Reserve button for non-creators
+                if eventIsLiked && !enableAdminMode && !isCurrentUserEventCreator && !eventIsReserved {
+                    Button(action: {
+                        showReservationSheet = true
+                    }) {
+                        Text("Reserve")
+                            .font(.abeezeeItalic(size: 12))
+                            .foregroundColor(.white)
+                            .frame(width: 124, height: 28)
+                            .padding(2)
+                            .background(.espresso)
+                            .cornerRadius(8)
+                    }
+                }
+                
+                // Show View Reservations button for event creators (only from posted events tab)
+                if isCurrentUserEventCreator && navigationSource == .postedEvents {
+                    Button(action: {
+                        // Reset and load fresh profile data
+                        userProfileModel.resetMatchedUsersProfiles()
+                        loadReservedUserProfiles()
+                        showReservationsView = true
+                    }) {
+                        Text("View Guest List")
+                            .font(.abeezeeItalic(size: 12))
+                            .foregroundColor(.white)
+                            .frame(width: 150, height: 28)
+                            .padding(2)
+                            .background(.espresso)
+                            .cornerRadius(8)
+                    }
+                }
+                
+                if eventIsReserved && !isCurrentUserEventCreator {
+                    // Show buttons horizontally
+                    HStack(spacing: 16) {
+                        // Show View Tickets button for paid events with purchased tickets
+                        if hasPurchasedTickets {
+                            Button(action: {
+                                showTicketListView = true
+                            }) {
+                                Text("View Ticket(s)")
+                                    .font(.abeezeeItalic(size: 12))
+                                    .foregroundColor(.white)
+                                    .frame(width: 124, height: 28)
+                                    .padding(2)
+                                    .background(.sandstone)
+                                    .cornerRadius(8)
+                            }
+                        }
+                        
                         Button(action: {
-                            showReservationCancellation.toggle()
+                            // Check if this is a paid event that the user has purchased
+                            if hasPurchasedTickets {
+                                showPaidEventCancellationAlert = true
+                            } else {
+                                showReservationCancellation.toggle()
+                            }
                         }) {
                             Text("Cancel Reservation")
                                 .font(.abeezeeItalic(size: 12))
@@ -236,11 +349,11 @@ struct EventScreenView: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding()
-                
             }
+            .padding()
+            
         }
+        
         .navigationDestination(isPresented: handleNavigation ? $goNext : .constant(false)) {
             MatchedUserDetailsView()
                 .navigationBarBackButtonHidden()
@@ -250,11 +363,34 @@ struct EventScreenView: View {
                 NewEventView0(isNewEventViewPresented: $isNewEventViewPresented)
             }
         }
+        .alert("Paid Event Cancellation", isPresented: $showPaidEventCancellationAlert) {
+            Button("Email Support") {
+                if let url = URL(string: "mailto:foundavibellc@gmail.com?subject=Ticket%20Refund%20Request&body=Hello,%0D%0A%0D%0AI%20would%20like%20to%20request%20a%20refund%20for%20my%20ticket%20purchase%20for%20the%20event:%20\(event.title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? event.title)%0D%0A%0D%0APlease%20let%20me%20know%20the%20next%20steps.%0D%0A%0D%0AThank%20you!") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                showPaidEventCancellationAlert = false
+            }
+        } message: {
+            Text("To cancel your paid reservation and request a refund, please contact our customer support team at foundavibellc@gmail.com. We'll help you process your refund request.")
+        }
         .background(Color.white)
         .onAppear {
             if let userId = authenticationModel.state.currentUser?.id, let details = eventModel.currentEventDetails {
                 event = details
+                
+                // Debug event details
+                print("📱 EventDetailsView loaded for event: \(event.title)")
+                print("👥 Event has \(event.guests.count) guests:")
+                for guest in event.guests {
+                    print("  - \(guest.name) (\(guest.role)): ImageURL = \(guest.imageUrl?.isEmpty == false ? guest.imageUrl! : "[EMPTY or NIL]")")
+                }
+                
                 userProfileModel.getMatchedUsersProfiles(userId: userId,userIds: event.likes.filter { $0 != userId})
+                
+                // Preload guest images to warm cache
+                preloadGuestImages(for: event)
             }
             checkLikedEvents()
             checkedReservedEvents()
@@ -268,11 +404,82 @@ struct EventScreenView: View {
             }
             
         }
+        .onReceive(userProfileModel.$matchedProfiles) { profiles in
+            // Keep local copy in sync for the reservations sheet
+            reservedUserProfiles = profiles
+            
+            // Preload matched profile images to warm cache
+            preloadMatchedProfileImages(profiles: profiles)
+        }
         .onDisappear {
             userProfileModel.resetMatchedUsersProfiles()
         }
     }
+    
+    // MARK: - Image Preloading Functions
+    
+    /// Preloads guest images to warm the cache for faster display
+    private func preloadGuestImages(for event: Event) {
+        guard !event.guests.isEmpty else { return }
+        
+        // Collect valid URLs
+        let guestImageUrls = event.guests.compactMap { guest -> URL? in
+            guard let imageUrlString = guest.imageUrl, 
+                  !imageUrlString.isEmpty,
+                  let imageUrl = URL(string: imageUrlString) else {
+                print("⚠️ Skipping guest \(guest.name) - no valid image URL")
+                return nil
+            }
+            return imageUrl
+        }
+        
+        guard !guestImageUrls.isEmpty else { return }
+        
+        print("🔄 Batch preloading \(guestImageUrls.count) guest images...")
+        
+        // Use ImagePrefetcher for efficient batch loading
+        let prefetcher = ImagePrefetcher(urls: guestImageUrls) { skippedResources, failedResources, completedResources in
+            print("✅ Guest image preloading completed:")
+            print("  - Completed: \(completedResources.count)")
+            print("  - Failed: \(failedResources.count)")
+            print("  - Skipped: \(skippedResources.count)")
+        }
+        
+        // Start prefetching with higher priority
+        prefetcher.start()
+    }
+    
+    /// Preloads matched profile images to warm the cache for faster display
+    private func preloadMatchedProfileImages(profiles: [UserProfile]) {
+        guard !profiles.isEmpty else { return }
+        
+        // Collect valid profile image URLs
+        let profileImageUrls = profiles.compactMap { profile -> URL? in
+            guard !profile.profileImageUrl.isEmpty,
+                  let imageUrl = URL(string: profile.profileImageUrl) else {
+                print("⚠️ Skipping profile \(profile.fullName) - no valid image URL")
+                return nil
+            }
+            return imageUrl
+        }
+        
+        guard !profileImageUrls.isEmpty else { return }
+        
+        print("🔄 Batch preloading \(profileImageUrls.count) matched profile images...")
+        
+        // Use ImagePrefetcher for efficient batch loading
+        let prefetcher = ImagePrefetcher(urls: profileImageUrls) { skippedResources, failedResources, completedResources in
+            print("✅ Profile image preloading completed:")
+            print("  - Completed: \(completedResources.count)")
+            print("  - Failed: \(failedResources.count)")
+            print("  - Skipped: \(skippedResources.count)")
+        }
+        
+        // Start prefetching
+        prefetcher.start()
+    }
 }
+
 
 
 
@@ -283,6 +490,7 @@ struct HeaderView: View {
     @EnvironmentObject var authenticationModel: AuthenticationModel
     
     @State var showFlagContentView = false
+    @State private var showPaidEventDeletionAlert: Bool = false
     
     @Binding var isNewEventViewPresented: Bool
     
@@ -311,12 +519,37 @@ struct HeaderView: View {
                         isNewEventViewPresented.toggle()
                     })
                     Button("Delete", action: {
-                        Task {
-                            do {
-                                try await eventModel.deleteCurrentEvent()
-                                eventModel.clearCurrentEventDetails()
-                            } catch {
+                        // Check if this is a paid event
+                        if let currentEvent = eventModel.currentEventDetails {
+                            print("🗑️ DELETE BUTTON: Event found - \(currentEvent.title)")
+                            print("💵 Price details count: \(currentEvent.priceDetails.count)")
+                            print("🏭 Is user generated: \(currentEvent.isUserGenerated)")
+                            print("🔄 Has internal pricing: \(currentEvent.hasInternalPricing)")
+                            print("🆓 Is free event: \(currentEvent.isFreeEvent)")
+                            print("🔗 Has external links: \(currentEvent.hasExternalTicketLinks)")
+                            
+                            for (index, priceDetail) in currentEvent.priceDetails.enumerated() {
+                                print("🏷️ Price \(index): \(priceDetail.title) - \(priceDetail.formattedPrice)")
                             }
+                            
+                            if currentEvent.hasInternalPricing {
+                                print("⚠️ PAID EVENT: Showing deletion prevention alert")
+                                // Show alert for paid events
+                                showPaidEventDeletionAlert = true
+                            } else {
+                                print("✅ FREE EVENT: Allowing deletion")
+                                // Allow deletion for free events
+                                Task {
+                                    do {
+                                        try await eventModel.deleteCurrentEvent()
+                                        eventModel.clearCurrentEventDetails()
+                                    } catch {
+                                        print("Failed to delete event: \(error.localizedDescription)")
+                                    }
+                                }
+                            }
+                        } else {
+                            print("❌ DELETE BUTTON: No current event found in eventModel.currentEventDetails")
                         }
                     })
                 } label: {
@@ -344,7 +577,13 @@ struct HeaderView: View {
                             interactionModel.dislikeEvent(userId: user.id, eventId: currentEventDetails.id.uuidString)
                             let event = eventModel.events.first(where: { $0.id.uuidString == currentEventDetails.id.uuidString })
                             if let event {
-                                try await eventModel.deleteEvent(event)
+                                // Check if this is a paid event before allowing deletion
+                                if !event.hasInternalPricing {
+                                    try await eventModel.deleteEvent(event)
+                                } else {
+                                    print("⚠️ Attempted to delete paid event via flag content - deletion blocked")
+                                    // For paid events, we'll just mark it as flagged but not delete
+                                }
                             }
                             await MainActor.run {
                                 eventModel.clearCurrentEventDetails()
@@ -363,6 +602,19 @@ struct HeaderView: View {
             .presentationCornerRadius(24)
             .interactiveDismissDisabled(false)
         }
+        .alert("Paid Event Deletion", isPresented: $showPaidEventDeletionAlert) {
+            Button("Email Support") {
+                if let currentEvent = eventModel.currentEventDetails,
+                   let url = URL(string: "mailto:foundavibellc@gmail.com?subject=Event%20Deletion%20Request&body=Hello,%0D%0A%0D%0AI%20would%20like%20to%20request%20the%20deletion%20of%20my%20paid%20event:%20\(currentEvent.title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? currentEvent.title)%0D%0A%0D%0AEvent%20ID:%20\(currentEvent.id.uuidString)%0D%0A%0D%0APlease%20let%20me%20know%20the%20next%20steps%20for%20handling%20any%20existing%20reservations%20and%20refunds.%0D%0A%0D%0AThank%20you!") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                showPaidEventDeletionAlert = false
+            }
+        } message: {
+            Text("Charged events cannot be deleted from the app. Please contact the system administrator at foundavibellc@gmail.com.")
+        }
         .padding(.horizontal)
     }
 }
@@ -378,6 +630,7 @@ struct EventImageView: View {
     var eventIsReserved: Bool
     
     var enableAdminMode: Bool
+    var isUserGenerated: Bool = true // Default to user generated for backward compatibility
     
     var interactWithEvent: (() -> Void)
     
@@ -385,7 +638,7 @@ struct EventImageView: View {
         ZStack(alignment: .bottomLeading) {
             KFImage(URL(string: eventImage ?? ""))
                 .resizable()
-                .scaledToFill()
+                .aspectRatio(contentMode: isUserGenerated ? .fill : .fit)
                 .frame(height: 200)
                 .cornerRadius(12)
                 .clipped()
@@ -419,9 +672,33 @@ struct EventDetailsView: View {
     var location: String
     var date: String
     var timeRange: String
+    var likesCount: Int = 0
+    var reservationsCount: Int = 0
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Likes and Reservations Count Row
+            HStack(spacing: 16) {
+                HStack {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                    Text("\(likesCount) \(likesCount == 1 ? "Like" : "Likes")")
+                        .font(.abeezeeItalic(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .foregroundColor(.sandstone)
+                    Text("\(reservationsCount) \(reservationsCount == 1 ? "Reservation" : "Reservations")")
+                        .font(.abeezeeItalic(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            
+            // Date and Location Row
             HStack(spacing: 16) {
                 HStack {
                     Image(systemName: "calendar")
@@ -463,11 +740,11 @@ struct TagsView: View {
     var body: some View {
         HStack {
             ForEach(tags, id: \.self) { tag in
-                Text("#\(tag)")
+                Text(tag)
                     .font(.caption)
                     .foregroundColor(.white)
                     .padding(6)
-                    .background(.goldenBrown)
+                    .background(.sandstone)
                     .cornerRadius(8)
             }
         }
@@ -487,58 +764,123 @@ struct SpeakerGuestView: View {
                 .padding([.top, .horizontal])
             
             ScrollView(.horizontal, showsIndicators: false) {
-                ForEach(guests, id: \.self) { guest in
-                    GuestCardView(name: guest.name, imageName: guest.imageUrl ?? "")
+                HStack(spacing: 16) {
+                    ForEach(guests, id: \.self) { guest in
+                        GuestCardView(
+                            name: guest.name, 
+                            imageName: guest.imageUrl ?? "",
+                            role: guest.role
+                        )
+                    }
                 }
+                .padding(.horizontal)
             }
         }
     }
 }
 
 struct PriceDetailsView: View {
-    let priceDetails: [PriceDetails]
+    let event: Event
     @Binding var showWebView: Bool
     @Binding var eventIsReserved: Bool
+    @State private var selectedExternalURL: URL?
     
     var body: some View {
-        VStack(alignment: .center) {
+        VStack {
             Text("Event Price")
                 .font(.abeezeeItalic(size: 16))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding([.top, .horizontal])
             
-            if priceDetails.count > 0 {
+            if event.isFreeEvent {
+                // User-generated event with no price details = Free
+                HStack {
+                    Image(systemName: "gift.fill")
+                        .foregroundColor(.green)
+                    Text("Free Event")
+                        .font(.abeezeeItalic(size: 16))
+                        .foregroundColor(.green)
+                }
+                .padding(.bottom)
+                
+            } else if event.hasExternalTicketLinks {
+                // System-generated event with external links
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(priceDetails, id: \.self) { price in
-                            VStack(alignment: .center, spacing: 8) {
-                                if let link = price.link {
-                                    if !link.isEmpty {
+                        ForEach(event.priceDetails.filter { $0.hasValidLink }, id: \.self) { price in
+                            Button(action: {
+                                if let urlString = price.link, let url = URL(string: urlString) {
+                                    selectedExternalURL = url
+                                    showWebView = true
+                                }
+                            }) {
+                                VStack(alignment: .center, spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "link")
+                                            .foregroundColor(.blue)
                                         Text("View Tickets Online")
                                             .font(.abeezeeItalic(size: 14))
-                                            .foregroundStyle(.sandstone)
-                                            .underline()
-                                            .onTapGesture {
-                                                showWebView.toggle()
-                                            }
-                                        
-                                        
-                                        
+                                            .foregroundStyle(.blue)
                                     }
-                                } else {
-                                    Text(price.title)
-                                        .font(.abeezeeItalic(size: 14))
-                                    Text("$\(price.price)")
-                                        .font(.abeezeeItalic(size: 14))
-                                        .foregroundStyle(.sandstone)
+                                    .underline()
+                                    
+                                    if !price.title.isEmpty {
+                                        Text(price.title)
+                                            .font(.abeezeeItalic(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(8)
                             }
                         }
                     }
                     .padding(.horizontal)
                 }
+                
+            } else if event.hasInternalPricing {
+                // User-generated event with Stripe pricing
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(event.priceDetails, id: \.self) { price in
+                            VStack(alignment: .center, spacing: 8) {
+                                HStack {
+                                    Image(systemName: "creditcard.fill")
+                                        .foregroundColor(.green)
+                                    VStack(alignment: .leading) {
+                                        Text(price.title)
+                                            .font(.abeezeeItalic(size: 14))
+                                            .fontWeight(.medium)
+                                        Text(price.formattedPrice)
+                                            .font(.abeezeeItalic(size: 14))
+                                            .foregroundStyle(.green)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
             } else {
-                Text("Free Event")
+                // Fallback for edge cases
+                Text("Event Details Available")
+                    .font(.abeezeeItalic(size: 14))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+            }
+        }
+        .sheet(isPresented: $showWebView) {
+            if let url = selectedExternalURL {
+                WebView(url: url)
+            } else if let firstLink = event.firstExternalLink, let url = URL(string: firstLink) {
+                WebView(url: url)
             }
         }
     }
@@ -547,16 +889,45 @@ struct PriceDetailsView: View {
 struct GuestCardView: View {
     var name: String
     var imageName: String
+    var role: String = "Speaker"
     
     var body: some View {
         VStack(spacing: 8) {
             KFImage(URL(string: imageName))
+                .placeholder {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 93, height: 97)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .foregroundColor(.gray)
+                                .font(.title2)
+                        }
+                }
+                .onFailure { error in
+                    print("❌ Failed to load guest image: \(imageName)")
+                    print("❌ Error: \(error.localizedDescription)")
+                }
+                .retry(maxCount: 3)
+                .cacheOriginalImage()
+                .fade(duration: 0.25)
                 .resizable()
                 .scaledToFill()
                 .frame(width: 93, height: 97)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-            Text(name)
-                .font(.abeezeeItalic(size: 16))
+            
+            VStack(spacing: 2) {
+                Text(name)
+                    .font(.abeezeeItalic(size: 14))
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                Text(role)
+                    .font(.abeezeeItalic(size: 12))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+            }
         }
         .frame(width: 120)
     }
@@ -656,6 +1027,144 @@ struct EventUser: Identifiable {
     let imageName: String
 }
 
+// MARK: - Event Reservations View
+struct EventReservationsView: View {
+    @SwiftUI.Environment(\.dismiss) private var dismiss
+    
+    let event: Event
+    let reservedUserProfiles: [UserProfile]
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Event Reservations")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.espresso)
+                    
+                    Text(event.title)
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                
+                // Reservation Count
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .foregroundColor(.sandstone)
+                    Text("\(reservedUserProfiles.count) \(reservedUserProfiles.count == 1 ? "Reservation" : "Reservations")")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal)
+                
+                // Reservations List
+                if reservedUserProfiles.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.2.circle")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray.opacity(0.5))
+                        
+                        Text("No Reservations Yet")
+                            .font(.title3)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        Text("When people reserve your event, they'll appear here")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(reservedUserProfiles, id: \.self) { userProfile in
+                                ReservationUserCard(userProfile: userProfile)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.espresso)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Reservation User Card
+struct ReservationUserCard: View {
+    let userProfile: UserProfile
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // User Profile Image
+            KFImage(URL(string: userProfile.profileImageUrl))
+                .resizable()
+                .scaledToFill()
+                .frame(width: 60, height: 60)
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            
+            // User Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(userProfile.fullName)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                if !userProfile.bio.isEmpty {
+                    Text(userProfile.bio)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                
+                // Interests/Tags
+                if !userProfile.interests.isEmpty {
+                    HStack {
+                        ForEach(userProfile.interests.prefix(3), id: \.self) { interest in
+                            Text(interest)
+                                .font(.caption)
+                                .foregroundColor(.sandstone)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.sandstone.opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Status Icon
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+                .font(.title3)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+}
 
 #Preview {
     EventScreenView(event: try! Event(id: UUID(), title: "Drinks and Mingle", description: "String", date: "String", timeRange: "String", location: "String", createdBy: "String"))

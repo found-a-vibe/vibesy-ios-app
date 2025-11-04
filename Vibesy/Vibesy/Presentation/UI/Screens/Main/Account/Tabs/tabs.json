@@ -15,7 +15,7 @@
         "destination": "reservedEvents"
     },
     {
-        "icon": "creditcard.circle",
+        "icon": "Smartphone",
         "title": "Host Settings",
         "destination": "hostSettings"
     },

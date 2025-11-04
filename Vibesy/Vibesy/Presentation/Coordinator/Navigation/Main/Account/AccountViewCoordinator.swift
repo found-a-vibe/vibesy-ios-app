@@ -28,6 +28,7 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
     
     @Published var path: NavigationPath = NavigationPath()
     @Published var enableAdminMode: Bool = false
+    @Published var currentNavigationSource: EventStatus? = nil
     
     func build(page: PagesType, args: Any? = nil) -> AnyView {
         switch page {
@@ -51,6 +52,7 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
                 }
                 if direction == .forward {
                     self.enableAdminMode = true
+                    self.currentNavigationSource = .postedEvents
                     self.push(page: .eventDetails)
                 }
             }
@@ -64,14 +66,17 @@ class AccountPageCoordinator: ObservableObject, PageCoordinator {
                     self.popToRoot()
                 }
                 if direction == .forward {
+                    self.currentNavigationSource = .reservedEvents
                     self.push(page: .eventDetails)
                 }
             }
                 .toolbar(.hidden, for: .tabBar)
                 .navigationBarBackButtonHidden())
         case .eventDetails:
-            return AnyView(EventScreenView(enableAdminMode: enableAdminMode) { direction in
+            return AnyView(EventScreenView(enableAdminMode: enableAdminMode, navigationSource: currentNavigationSource) { direction in
                 if direction == .back {
+                    self.enableAdminMode = false
+                    self.currentNavigationSource = nil
                     self.pop()
                 }
                 if direction == .forward {

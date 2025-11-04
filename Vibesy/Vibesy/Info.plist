@@ -29,5 +29,20 @@
 	<string>Vibesy needs camera access to scan QR codes for ticket verification.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Vibesy uses location to help you find nearby events and venues.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>1.0</string>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

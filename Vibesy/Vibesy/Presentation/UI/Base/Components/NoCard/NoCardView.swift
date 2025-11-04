@@ -25,7 +25,7 @@ struct NoCardView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(.espresso)
             
-            Text("The Vibes Are Coming in 2025.")
+            Text("More Vibes Are Coming.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

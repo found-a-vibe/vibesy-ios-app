@@ -12,6 +12,7 @@ struct NewEventView0: View {
     
     @EnvironmentObject var authenticationModel: AuthenticationModel
     @EnvironmentObject var eventModel: EventModel
+    @StateObject private var validationModel = EventValidationModel()
     
     @State private var tags: [String] = []
     @State private var eventTitle: String = ""
@@ -44,23 +45,43 @@ struct NewEventView0: View {
                 
                 // Event Title
                 VStack(alignment: .leading) {
-                    Text("Event Title")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Title")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     HStack {
                         Image("Event")
                             .resizable()
                             .frame(width: 22, height: 22)
                             .imageScale(.small)
                         TextField("Event Title", text: $eventTitle)
+                            .onChange(of: eventTitle) { _, _ in
+                                _ = validationModel.validateTitle(eventTitle)
+                            }
                     }
                     .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1))
+                    .fieldBorder(
+                        hasError: validationModel.hasError(for: "title"),
+                        showErrors: validationModel.showValidationErrors
+                    )
                 }
+                .fieldErrorMessage(
+                    validationModel.errorMessage(for: "title"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 
                 // Event Date
                 VStack(alignment: .leading) {
-                    Text("Event Date")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Date")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     HStack {
                         Image("Calendar")
                             .resizable()
@@ -68,17 +89,27 @@ struct NewEventView0: View {
                             .imageScale(.small)
                         DatePicker("Select Date", selection: $eventDate, displayedComponents: .date)
                             .labelsHidden()
+                            .onChange(of: eventDate) { _, _ in
+                                _ = validationModel.validateTimeRange(start: startTime, end: endTime)
+                            }
                         Spacer()
-                        
                     }
                     .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1))
+                    .fieldBorder(
+                        hasError: false, // Date is always valid when selected
+                        showErrors: validationModel.showValidationErrors
+                    )
                 }
                 
                 // Event Time Picker
                 VStack(alignment: .leading) {
-                    Text("Event Time")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Time")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     Button(action: {
                         isSelectingTime.toggle()
                     }) {
@@ -90,19 +121,37 @@ struct NewEventView0: View {
                             Text("\(formattedTimeRange(start: startTime, end: endTime))")
                                 .foregroundColor(.black)
                             Spacer()
-                            
                         }
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1))
+                        .fieldBorder(
+                            hasError: validationModel.hasError(for: "time"),
+                            showErrors: validationModel.showValidationErrors
+                        )
                     }
                 }
+                .fieldErrorMessage(
+                    validationModel.errorMessage(for: "time"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 .sheet(isPresented: $isSelectingTime) {
-                    TimePickerView(startTime: $startTime, endTime: $endTime, isPresented: $isSelectingTime)
+                    TimePickerView(
+                        startTime: $startTime,
+                        endTime: $endTime,
+                        isPresented: $isSelectingTime,
+                        onTimeChanged: {
+                            _ = validationModel.validateTimeRange(start: startTime, end: endTime)
+                        }
+                    )
                 }
                 // Event Location
                 VStack(alignment: .leading) {
-                    Text("Event Location")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Location")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     Button(action: {
                         showSearchService.toggle()
                     }) {
@@ -112,19 +161,26 @@ struct NewEventView0: View {
                                 .frame(width: 22, height: 22)
                                 .imageScale(.small)
                             Text("\(eventLocation ?? "Select Location")")
-                                .foregroundColor(.black)
+                                .foregroundColor(eventLocation?.isEmpty ?? true ? .gray : .black)
                             Spacer()
-                            
                         }
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1))
+                        .fieldBorder(
+                            hasError: validationModel.hasError(for: "location"),
+                            showErrors: validationModel.showValidationErrors
+                        )
                     }
                 }
+                .fieldErrorMessage(
+                    validationModel.errorMessage(for: "location"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 .sheet (isPresented: $showSearchService) {
                     if #available(iOS 16, *){
                         NavigationStack{
                             SearchView() {
                                 eventLocation = $0
+                                _ = validationModel.validateLocation(eventLocation)
                                 showSearchService.toggle()
                             } closeSearch: {
                                 showSearchService.toggle()
@@ -135,6 +191,7 @@ struct NewEventView0: View {
                         NavigationView{
                             SearchView() {
                                 eventLocation = $0
+                                _ = validationModel.validateLocation(eventLocation)
                                 showSearchService.toggle()
                             } closeSearch: {
                                 showSearchService.toggle()
@@ -147,32 +204,80 @@ struct NewEventView0: View {
                 
                 // Event Details
                 VStack(alignment: .leading) {
-                    Text("Event Details")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Details")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     TextEditor(text: $eventDescription)
                         .frame(height: 100)
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 10).stroke(.gray, lineWidth: 1))
+                        .fieldBorder(
+                            hasError: validationModel.hasError(for: "details"),
+                            showErrors: validationModel.showValidationErrors
+                        )
+                        .onChange(of: eventDescription) { _, _ in
+                            _ = validationModel.validateDetails(eventDescription)
+                        }
                 }
+                .fieldErrorMessage(
+                    validationModel.errorMessage(for: "details"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 
                 VStack(alignment: .leading) {
-                    Text("Event Tags")
-                        .font(.abeezee(size: 14))
+                    HStack {
+                        Text("Event Tags")
+                            .font(.abeezee(size: 14))
+                        Text("*")
+                            .foregroundColor(.red)
+                            .font(.abeezee(size: 14))
+                    }
                     TagField(tags: $tags, placeholder: "Add Tags..")
                         .accentColor(.espresso)
                         .styled(.RoundedBorder)
                         .lowercase(false)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(
+                                    validationModel.hasError(for: "tags") && validationModel.showValidationErrors ? Color.red : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
+                        .onChange(of: tags) { _, _ in
+                            _ = validationModel.validateTags(tags)
+                        }
                 }
+                .fieldErrorMessage(
+                    validationModel.errorMessage(for: "tags"),
+                    showErrors: validationModel.showValidationErrors
+                )
                 Button(
                     action: {
-                        eventModel.newEvent?.title = eventTitle.aa_profanityFiltered("*")
-                        eventModel.newEvent?.description = eventDescription.aa_profanityFiltered("*")
-                        eventModel.newEvent?.location = eventLocation ?? ""
-                        eventModel.newEvent?.date = formattedDate(date: eventDate)
-                        eventModel.newEvent?.timeRange = formattedTimeRange(start: startTime, end: endTime)
-                        tags.forEach { eventModel.newEvent?.hashtags.append($0.aa_profanityFiltered("*")) }
+                        // Validate all required fields
+                        let isFormValid = validationModel.validateBasicEventForm(
+                            title: eventTitle,
+                            location: eventLocation,
+                            details: eventDescription,
+                            tags: tags,
+                            startTime: startTime,
+                            endTime: endTime
+                        )
                         
-                        goNext.toggle()
+                        if isFormValid {
+                            // Update event model with validated data
+                            eventModel.newEvent?.title = eventTitle.aa_profanityFiltered("*")
+                            eventModel.newEvent?.description = eventDescription.aa_profanityFiltered("*")
+                            eventModel.newEvent?.location = eventLocation ?? ""
+                            eventModel.newEvent?.date = formattedDate(date: eventDate)
+                            eventModel.newEvent?.timeRange = formattedTimeRange(start: startTime, end: endTime)
+                            tags.forEach { eventModel.newEvent?.hashtags.append($0.aa_profanityFiltered("*")) }
+                            
+                            goNext.toggle()
+                        }
+                        // If validation fails, errors are automatically shown
                     },
                     label: {
                         Text("Next")
@@ -185,6 +290,7 @@ struct NewEventView0: View {
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 8))
                 .tint(.espresso)
+                .opacity(validationModel.showValidationErrors && validationModel.hasAnyErrors ? 0.6 : 1.0)
                 .padding(.vertical)
             }
             .padding()
@@ -220,6 +326,7 @@ struct TimePickerView: View {
     @Binding var startTime: Date
     @Binding var endTime: Date
     @Binding var isPresented: Bool
+    var onTimeChanged: (() -> Void)? = nil
     
     var body: some View {
         NavigationView {
@@ -227,10 +334,16 @@ struct TimePickerView: View {
                 Section(header: Text("Start Time")) {
                     DatePicker("Select Start Time", selection: $startTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
+                        .onChange(of: startTime) { _, _ in
+                            onTimeChanged?()
+                        }
                 }
                 Section(header: Text("End Time")) {
                     DatePicker("Select End Time", selection: $endTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
+                        .onChange(of: endTime) { _, _ in
+                            onTimeChanged?()
+                        }
                 }
             }
             .navigationBarTitle("Select Time", displayMode: .inline)

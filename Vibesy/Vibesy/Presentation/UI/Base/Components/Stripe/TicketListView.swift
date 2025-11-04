@@ -80,25 +80,25 @@ struct TicketListView: View {
                     }
                 }
                 
-                if viewModel.orderResponse != nil {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Menu {
-                            Button {
-                                viewModel.shareTickets()
-                            } label: {
-                                Label("Share Tickets", systemImage: "square.and.arrow.up")
-                            }
-                            
-                            Button {
-                                viewModel.saveToPhotos()
-                            } label: {
-                                Label("Save to Photos", systemImage: "photo")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                    }
-                }
+//                if viewModel.orderResponse != nil {
+//                    ToolbarItem(placement: .navigationBarTrailing) {
+//                        Menu {
+//                            Button {
+//                                viewModel.shareTickets()
+//                            } label: {
+//                                Label("Share Tickets", systemImage: "square.and.arrow.up")
+//                            }
+//                            
+//                            Button {
+//                                viewModel.saveToPhotos()
+//                            } label: {
+//                                Label("Save to Photos", systemImage: "photo")
+//                            }
+//                        } label: {
+//                            Image(systemName: "ellipsis.circle")
+//                        }
+//                    }
+//                }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
@@ -124,6 +124,9 @@ struct TicketListView: View {
 struct TicketCardView: View {
     let ticket: TicketInfo
     @State private var showingQRCode = false
+    @State private var showingInvoice = false
+    @State private var qrInvoiceData: QRInvoiceData?
+    @State private var isLoadingInvoice = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -182,19 +185,46 @@ struct TicketCardView: View {
             
             // Actions
             HStack {
-                Button {
-                    showingQRCode.toggle()
-                } label: {
-                    HStack {
-                        Image(systemName: "qrcode")
-                        Text(showingQRCode ? "Hide QR Code" : "Show QR Code")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                }
-                .foregroundColor(.blue)
+//                Button {
+//                    showingQRCode.toggle()
+//                } label: {
+//                    HStack {
+//                        Image(systemName: "qrcode")
+//                        Text(showingQRCode ? "Hide QR Code" : "Show QR Code")
+//                    }
+//                    .font(.subheadline)
+//                    .fontWeight(.medium)
+//                }
+//                .foregroundColor(.blue)
+//                
+//                Spacer()
                 
-                Spacer()
+                // Invoice button (only for paid tickets)
+                if ticket.event.priceCents > 0 {
+                    Button {
+                        if qrInvoiceData != nil {
+                            showingInvoice = true
+                        } else {
+                            loadInvoiceData()
+                        }
+                    } label: {
+                        HStack {
+                            if isLoadingInvoice {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "doc.text")
+                            }
+                            Text("Receipt")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    }
+                    .foregroundColor(.green)
+                    .disabled(isLoadingInvoice)
+                    
+                    Spacer()
+                }
                 
                 Button {
                     shareTicket(ticket)
@@ -208,13 +238,27 @@ struct TicketCardView: View {
             // QR Code
             if showingQRCode {
                 VStack(spacing: 12) {
-                    QRCodeView(token: ticket.qrToken)
-                        .frame(width: 200, height: 200)
+                    if let invoiceData = qrInvoiceData {
+                        QRCodeView(invoiceData: invoiceData)
+                            .frame(width: 200, height: 200)
+                    } else {
+                        QRCodeView(token: ticket.qrToken)
+                            .frame(width: 200, height: 200)
+                    }
                     
-                    Text("Present this QR code at the event entrance")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                    VStack(spacing: 4) {
+                        Text("Present this QR code at the event entrance")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        
+                        if qrInvoiceData != nil {
+                            Text("QR code includes payment receipt information")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top)
@@ -226,6 +270,17 @@ struct TicketCardView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         )
+        .sheet(isPresented: $showingInvoice) {
+            if let invoiceData = qrInvoiceData {
+                InvoiceDisplayView(qrInvoiceData: invoiceData)
+            }
+        }
+        .onAppear {
+            // Preload invoice data for paid tickets
+            if ticket.event.priceCents > 0 && qrInvoiceData == nil {
+                loadInvoiceData()
+            }
+        }
     }
     
     private func formatEventDate(_ dateString: String) -> String {
@@ -240,9 +295,66 @@ struct TicketCardView: View {
         return displayFormatter.string(from: date)
     }
     
+    private func loadInvoiceData() {
+        guard !isLoadingInvoice else { 
+            print("🔄 Already loading invoice data for ticket \(ticket.id)")
+            return 
+        }
+        
+        print("🚀 Starting to load invoice data for ticket \(ticket.id)")
+        isLoadingInvoice = true
+        
+        Task {
+            do {
+                let invoiceData = try await StripeAPIService.shared.getTicketQRWithInvoice(ticketId: ticket.id)
+                
+                await MainActor.run {
+                    self.qrInvoiceData = invoiceData
+                    self.isLoadingInvoice = false
+                    print("✅ Successfully loaded invoice data for ticket \(ticket.id)")
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingInvoice = false
+                    print("❌ Failed to load invoice data for ticket \(ticket.id): \(error.localizedDescription)")
+                    
+                    // Show user-friendly error message
+                    if let apiError = error as? APIError {
+                        switch apiError {
+                        case .networkError(_):
+                            print("🌐 Network error - invoice data may not be available")
+                        case .serverError(let message):
+                            print("🔧 Server error: \(message)")
+                        case .invalidResponse:
+                            print("📄 Invalid response from server")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     private func shareTicket(_ ticket: TicketInfo) {
-        // Implementation for sharing ticket
-        // This could include creating a ticket image or sharing the QR code
+        var shareItems: [Any] = []
+        
+        // Add basic ticket information
+        let ticketInfo = "\(ticket.event.title)\nTicket: \(ticket.ticketNumber)\nVenue: \(ticket.event.venue)\nDate: \(formatEventDate(ticket.event.startsAt))"
+        shareItems.append(ticketInfo)
+        
+        // Add receipt URL if available
+        if let invoiceData = qrInvoiceData, let receiptURL = invoiceData.receiptURL {
+            shareItems.append(URL(string: receiptURL)!)
+        }
+        
+        let activityController = UIActivityViewController(
+            activityItems: shareItems,
+            applicationActivities: nil
+        )
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityController, animated: true)
+        }
     }
 }
 
@@ -278,19 +390,50 @@ struct StatusBadge: View {
 
 struct QRCodeView: View {
     let token: String
+    let invoiceData: QRInvoiceData?
+    
+    // Convenience initializer for simple token
+    init(token: String) {
+        self.token = token
+        self.invoiceData = nil
+    }
+    
+    // Initializer for invoice data
+    init(invoiceData: QRInvoiceData) {
+        self.token = invoiceData.ticketToken
+        self.invoiceData = invoiceData
+    }
     
     var body: some View {
-        Image(uiImage: generateQRCode(from: token))
+        Image(uiImage: generateQRCode())
             .interpolation(.none)
             .resizable()
             .scaledToFit()
     }
     
-    private func generateQRCode(from string: String) -> UIImage {
+    private func generateQRCode() -> UIImage {
         let context = CIContext()
         let filter = CIFilter.qrCodeGenerator()
         
-        filter.message = Data(string.utf8)
+        let qrContent: String
+        
+        if let invoiceData = invoiceData {
+            // Generate QR code with invoice data as JSON
+            do {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .prettyPrinted
+                let jsonData = try encoder.encode(invoiceData)
+                qrContent = String(data: jsonData, encoding: .utf8) ?? token
+            } catch {
+                print("Failed to encode invoice data: \(error)")
+                qrContent = token // Fallback to simple token
+            }
+        } else {
+            // Use simple token format
+            qrContent = token
+        }
+        
+        filter.message = Data(qrContent.utf8)
         
         if let outputImage = filter.outputImage {
             // Scale up the QR code for better quality

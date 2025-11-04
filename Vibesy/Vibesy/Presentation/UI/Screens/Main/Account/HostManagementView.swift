@@ -15,6 +15,8 @@ struct HostManagementView: View {
     @State private var showDisconnectAlert = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var showDashboardSheet = false
+    @State private var dashboardURL: IdentifiedURL?
     
     var navigate: ((_ direction: Direction) -> Void)? = nil
     
@@ -27,15 +29,12 @@ struct HostManagementView: View {
                         navigate(.back)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
+
+                Spacer()
                 Text("Host Settings")
                     .font(.abeezeeItalic(size: 24))
                     .foregroundStyle(.espresso)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                
                 Spacer()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding()
             
@@ -82,6 +81,22 @@ struct HostManagementView: View {
                         refreshStripeStatus(forceRefresh: true)
                     }
                 )
+            }
+        }
+        .sheet(isPresented: $showDashboardSheet) {
+            if let dashboardURL = dashboardURL {
+                NavigationView {
+                    WebView(url: dashboardURL.url)
+                        .navigationTitle("Stripe Dashboard")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    showDashboardSheet = false
+                                }
+                            }
+                        }
+                }
             }
         }
     }
@@ -230,6 +245,13 @@ struct HostManagementView: View {
                 .disabled(stripeStatusManager.isLoading)
                 
             } else {
+                // View Dashboard Button
+                Button("View Stripe Dashboard") {
+                    openStripeDashboard()
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(stripeStatusManager.isLoading)
+                
                 // Refresh Status Button
                 Button("Refresh Status") {
                     refreshStripeStatus(forceRefresh: true)
@@ -274,6 +296,26 @@ struct HostManagementView: View {
             showErrorAlert = true
         }
     }
+    
+    private func openStripeDashboard() {
+        guard let userEmail = authenticationModel.state.currentUser?.email else { return }
+        
+        Task {
+            do {
+                if let url = try await stripeStatusManager.getDashboardLink(email: userEmail) {
+                    await MainActor.run {
+                        dashboardURL = IdentifiedURL(string: url)
+                        showDashboardSheet = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showErrorAlert = true
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Benefit Row Component
@@ -305,22 +347,6 @@ struct BenefitRow: View {
     }
 }
 
-// MARK: - Button Styles
-
-struct SecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundColor(.blue)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue, lineWidth: 2)
-                    .opacity(configuration.isPressed ? 0.8 : 1.0)
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-    }
-}
 
 struct DangerButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

@@ -86,6 +86,11 @@ struct MainView: View {
     private func setupTabBarAppearance() {
         let appearance = UITabBarAppearance()
         
+        // Configure background
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(Color(.sandstone))
+        appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
+        
         // Configure normal state
         appearance.stackedLayoutAppearance.normal.iconColor = UIColor.white
         appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
@@ -93,20 +98,122 @@ struct MainView: View {
             .font: UIFont.systemFont(ofSize: 12, weight: .medium)
         ]
         
-        // Configure selected state
+        // Configure selected state  
         appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
         appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
             .foregroundColor: UIColor(Color(.espresso)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
-        // Set background
+        // Also configure compact and inline layouts for consistency
+        appearance.compactInlineLayoutAppearance.normal.iconColor = UIColor.white
+        appearance.compactInlineLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
+        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
+        
+        appearance.inlineLayoutAppearance.normal.iconColor = UIColor.white
+        appearance.inlineLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
+        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.inlineLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
+        
+        // Apply to tab bar with iOS 16+ compatible method
+        if #available(iOS 15.0, *) {
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+        
+        // For iOS 16+, also set the appearance directly when the view appears
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                if let tabBarController = window.rootViewController as? UITabBarController {
+                    tabBarController.tabBar.standardAppearance = appearance
+                    tabBarController.tabBar.scrollEdgeAppearance = appearance
+                }
+            }
+        }
+    }
+    
+    private func applyTabBarAppearance() {
+        // Create the appearance configuration
+        let appearance = UITabBarAppearance()
+        
+        // Configure background
+        appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor(Color(.sandstone))
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         
-        // Apply to tab bar
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
+        // Configure normal state
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.white
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
+        
+        // Configure selected state  
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
+        
+        // Also configure compact and inline layouts for consistency
+        appearance.compactInlineLayoutAppearance.normal.iconColor = UIColor.white
+        appearance.compactInlineLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
+        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
+        
+        appearance.inlineLayoutAppearance.normal.iconColor = UIColor.white
+        appearance.inlineLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium)
+        ]
+        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.inlineLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(.espresso)),
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
+        ]
+        
+        // Apply the appearance to the current tab bar controller
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+               let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                
+                // Find the tab bar controller in the view hierarchy
+                var currentViewController = window.rootViewController
+                while let presentedViewController = currentViewController?.presentedViewController {
+                    currentViewController = presentedViewController
+                }
+                
+                if let tabBarController = currentViewController as? UITabBarController {
+                    tabBarController.tabBar.standardAppearance = appearance
+                    tabBarController.tabBar.scrollEdgeAppearance = appearance
+                    
+                    // Force update
+                    if #available(iOS 15.0, *) {
+                        tabBarController.tabBar.setNeedsLayout()
+                    }
+                }
+            }
+        }
     }
     
     private func checkNotificationChannel() {
@@ -208,6 +315,9 @@ struct MainView: View {
                     .tag(4)
             }
             .tint(.sandstone)
+            .onAppear {
+                applyTabBarAppearance()
+            }
             .onChange(of: selectedTab) { oldTab, newTab in
                 handleNewEventTab()
             }
@@ -255,6 +365,7 @@ struct MainView: View {
         }
         .onAppear {
             Self.logger.debug("MainView appeared")
+            applyTabBarAppearance()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Main navigation")
@@ -372,7 +483,7 @@ struct MockAuthenticationService: AuthenticationService {
 
 struct MockEventService: EventService {
     func getEventFeed(uid: String) async throws -> [Event] { [] }
-    func createOrUpdateEvent(_ event: Event) async throws -> Event { event }
+    func createOrUpdateEvent(_ event: Event, guestImages: [UUID: UIImage]) async throws -> Event { event }
     func deleteEvent(eventId: String, createdByUid: String) async throws {}
     func getEventsByStatus(uid: String, status: EventStatus) async throws -> [Event] { [] }
     func likeEvent(eventId: String, userID: String) async throws {}

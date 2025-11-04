@@ -13,9 +13,17 @@ struct ReservationSheet: View {
     @SwiftUI.Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authenticationModel: AuthenticationModel
     @StateObject private var paymentService = PaymentService.shared
+    @StateObject private var userOrdersService = UserOrdersService.shared
     private let stripeAPIService = StripeAPIService.shared
     
     let event: Event
+    let onReservationSuccess: (() -> Void)?
+    
+    init(event: Event, onReservationSuccess: (() -> Void)? = nil) {
+        self.event = event
+        self.onReservationSuccess = onReservationSuccess
+    }
+    
     @State private var selectedPriceIndex: Int?
     @State private var quantity: Int = 1
     @State private var isProcessingPayment = false
@@ -32,6 +40,9 @@ struct ReservationSheet: View {
     // For free events
     @State private var showReservationConfirmation = false
     
+    // For external link events
+    @State private var showExternalWebView = false
+    
     var selectedPrice: PriceDetails? {
         guard let index = selectedPriceIndex, 
               event.priceDetails.indices.contains(index) else { return nil }
@@ -44,7 +55,11 @@ struct ReservationSheet: View {
     }
     
     var hasFreePricing: Bool {
-        event.priceDetails.isEmpty || event.priceDetails.allSatisfy { $0.type == .free }
+        event.isFreeEvent || event.priceDetails.allSatisfy { $0.type == .free }
+    }
+    
+    var hasExternalLinks: Bool {
+        event.hasExternalTicketLinks
     }
     
     var body: some View {
@@ -86,7 +101,10 @@ struct ReservationSheet: View {
                             .fill(Color(.systemGray6))
                     )
                     
-                    if hasFreePricing {
+                    if hasExternalLinks {
+                        // External Link Event - should not reach this screen
+                        externalLinkSection
+                    } else if hasFreePricing {
                         // Free Event RSVP
                         freeEventSection
                     } else {
@@ -132,12 +150,75 @@ struct ReservationSheet: View {
                 dismiss()
             }
         }
+        .sheet(isPresented: $showExternalWebView) {
+            if let externalLink = event.firstExternalLink, let url = URL(string: externalLink) {
+                NavigationView {
+                    WebView(url: url)
+                        .navigationTitle("Event Tickets")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    showExternalWebView = false
+                                }
+                                .foregroundColor(.espresso)
+                            }
+                        }
+                }
+            }
+        }
         .modifier(
             ConditionalPaymentSheetModifier(
                 isPresented: $showPaymentSheet,
                 paymentSheet: paymentSheet,
                 onCompletion: handlePaymentResult
             )
+        )
+    }
+    
+    // MARK: - External Link Section
+    
+    private var externalLinkSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Third Party Event")
+                .font(.headline)
+                .foregroundColor(.espresso)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("This is a third party event. Tickets must be purchased from the external host website.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                HStack {
+                    Image(systemName: "link")
+                        .foregroundColor(.blue)
+                    Text("Visit external ticket site")
+                        .font(.subheadline)
+                }
+                
+                HStack {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.orange)
+                    Text("Reservations are handled by the event host's website")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+                
+                // External link button
+                if let externalLink = event.firstExternalLink {
+                    Button("Open Ticket Website") {
+                        showExternalWebView = true
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.blue)
+                    .padding(.top, 8)
+                }
+            }
+        }
+        .padding(.vertical)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.orange.opacity(0.1))
         )
     }
     
@@ -289,10 +370,22 @@ struct ReservationSheet: View {
     }
     
     // MARK: - Action Buttons
-    
     private var actionButtonsSection: some View {
         VStack(spacing: 16) {
-            if isProcessingPayment {
+            if hasExternalLinks {
+                if event.firstExternalLink != nil {
+                    Button("Open Ticket Website") {
+                        showExternalWebView = true
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                }
+                
+                Button("Close") {
+                    dismiss()
+                }
+                .foregroundColor(.secondary)
+                .padding()
+            } else if isProcessingPayment {
                 ProgressView("Processing...")
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(Color(.systemGray5))
@@ -329,9 +422,10 @@ struct ReservationSheet: View {
     }
     
     // MARK: - Actions
-    
     private func confirmFreeReservation() {
-        // TODO: Implement free event reservation logic
+        // Call the reservation success callback to update the parent view
+        onReservationSuccess?()
+        // Show confirmation alert
         showReservationConfirmation = true
     }
     
@@ -348,7 +442,7 @@ struct ReservationSheet: View {
         Task {
             do {
                 // Create real PaymentSheet using new UUID-compatible endpoint
-                let (paymentSheetInstance, intentId) = try await paymentService.createPaymentSheetForEvent(
+                let (paymentSheetInstance, orderIdFromBackend) = try await paymentService.createPaymentSheetForEvent(
                     event: event,
                     priceDetail: selectedPrice,
                     quantity: quantity,
@@ -358,7 +452,22 @@ struct ReservationSheet: View {
                 await MainActor.run {
                     print("🔍 Setting paymentSheet = \(paymentSheetInstance)")
                     paymentSheet = paymentSheetInstance
-                    paymentIntentId = intentId
+                    paymentIntentId = orderIdFromBackend // Store the order ID for later use
+                    
+                    // Store the order immediately after successful backend response
+                    // This ensures we have the correct order ID regardless of payment completion
+                    let orderIdString = orderIdFromBackend.hasPrefix("pi_") ? String(orderIdFromBackend.dropFirst(3)) : orderIdFromBackend
+                    if let userId = authenticationModel.state.currentUser?.id,
+                       let orderId = Int(orderIdString) {
+                        userOrdersService.storeOrder(
+                            eventId: event.id.uuidString,
+                            userId: userId,
+                            orderId: orderId,
+                            ticketCount: quantity
+                        )
+                        print("💾 Pre-stored order \(orderId) for event \(event.id.uuidString) before payment")
+                    }
+                    
                     isProcessingPayment = false // Allow PaymentSheet to show
                     
                     print("🔍 About to set showPaymentSheet = true")
@@ -397,6 +506,12 @@ struct ReservationSheet: View {
         case .completed:
             print("✅ REAL payment completed successfully!")
             isProcessingPayment = false
+            
+            // Order already stored when payment sheet was created
+            // No need to store again here
+            
+            // Call the reservation success callback to update the parent view
+            onReservationSuccess?()
             
             // Real payment confirmation
             if let intentId = paymentIntentId {
@@ -563,17 +678,11 @@ struct PaymentSuccessView: View {
             
             // Action Buttons
             VStack(spacing: 12) {
-                Button("View My Reservations") {
+                Button("View My Reservation") {
                     // TODO: Navigate to user's reservations
                     onDismiss()
                 }
                 .buttonStyle(PrimaryButtonStyle())
-                
-                Button("Done") {
-                    onDismiss()
-                }
-                .foregroundColor(.secondary)
-                .padding()
             }
         }
         .padding()
@@ -650,22 +759,29 @@ private struct ConditionalPaymentSheetModifier: ViewModifier {
 }
 
 #Preview {
-    var sampleEvent = try! Event(
-        id: UUID(),
-        title: "Summer Music Festival",
-        description: "Join us for an amazing evening of music and fun!",
-        date: "July 15, 2024",
-        timeRange: "7:00 PM - 11:00 PM",
-        location: "Central Park, NYC",
-        createdBy: "host123"
+    ReservationSheet(
+        event: {
+            var e = try! Event(
+                id: UUID(),
+                title: "Summer Music Festival",
+                description: "Join us for an amazing evening of music and fun!",
+                date: "July 15, 2024",
+                timeRange: "7:00 PM - 11:00 PM",
+                location: "Central Park, NYC",
+                createdBy: "host123"
+            )
+            e.addPriceDetail(try! PriceDetails(title: "General Admission", price: 25.00, currency: .usd, type: .fixed))
+            e.addPriceDetail(try! PriceDetails(title: "VIP Access", price: 75.00, currency: .usd, type: .fixed))
+            return e
+        }(),
+        onReservationSuccess: {}
     )
-    
-    // Add sample price details
-    sampleEvent.addPriceDetail(try! PriceDetails(title: "General Admission", price: 25.00, currency: .usd, type: .fixed))
-    sampleEvent.addPriceDetail(try! PriceDetails(title: "VIP Access", price: 75.00, currency: .usd, type: .fixed))
-    
-    return ReservationSheet(event: sampleEvent)
-        .environmentObject(AuthenticationModel(authenticationService: ReservationSheetMockAuthService(), state: AppState()))
+    .environmentObject(
+        AuthenticationModel(
+            authenticationService: ReservationSheetMockAuthService(),
+            state: AppState()
+        )
+    )
 }
 
 // MARK: - Mock Service for Preview
@@ -701,3 +817,4 @@ struct ReservationSheetMockAuthService: AuthenticationService {
         }
     }
 }
+

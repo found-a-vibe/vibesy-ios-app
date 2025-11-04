@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 import os.log
 
 // MARK: - Event Model Errors
@@ -115,7 +116,7 @@ final class EventModel: ObservableObject {
     }
     
     // MARK: - Event Operations
-    func addEvent() async throws {
+    func addEvent(guestImages: [UUID: UIImage] = [:]) async throws {
         guard let eventToAdd = newEvent else {
             throw EventModelError.noEventToCreate
         }
@@ -127,7 +128,7 @@ final class EventModel: ObservableObject {
             // Validate event before adding
             try eventToAdd.validate()
             
-            let createdEvent = try await service.createOrUpdateEvent(eventToAdd)
+            let createdEvent = try await service.createOrUpdateEvent(eventToAdd, guestImages: guestImages)
             
             // Update UI on main actor
             events.append(createdEvent)
@@ -145,7 +146,7 @@ final class EventModel: ObservableObject {
         }
     }
     
-    func updateEvent(_ event: Event) async throws {
+    func updateEvent(_ event: Event, guestImages: [UUID: UIImage] = [:]) async throws {
         Self.logger.info("Updating event: \(event.id)")
         loadingState = .loading
         
@@ -153,7 +154,7 @@ final class EventModel: ObservableObject {
             // Validate event before updating
             try event.validate()
             
-            let updatedEvent = try await service.createOrUpdateEvent(event)
+            let updatedEvent = try await service.createOrUpdateEvent(event, guestImages: guestImages)
             
             // Update in all relevant arrays
             updateEventInArrays(updatedEvent)

@@ -14,8 +14,8 @@ class FirebaseEventService: EventService, @unchecked Sendable {
     let interactionManager: InteractionManager = InteractionManager()
     
     @discardableResult
-    func createOrUpdateEvent(_ event: Event) async throws -> Event {
-        // Base payload (immutable)
+    func createOrUpdateEvent(_ event: Event, guestImages: [UUID: UIImage]) async throws -> Event {
+        // Base payload (immutable) - guests will be properly handled in uploadGuestsAndBuildDict
         var base: [String: Any] = [
             "id": event.id.uuidString,
             "title": event.title,
@@ -24,7 +24,6 @@ class FirebaseEventService: EventService, @unchecked Sendable {
             "timeRange": event.timeRange,
             "location": event.location,
             "hashtags": Array(event.hashtags),
-            "guests": event.guests.map { ["id": $0.id.uuidString, "name": $0.name] },
             "priceDetails": event.priceDetails.map { priceDetail in
                 var dict: [String: Any] = [
                     "id": priceDetail.id.uuidString,
@@ -52,7 +51,10 @@ class FirebaseEventService: EventService, @unchecked Sendable {
         }
 
         // Run heavy work in parallel
-        async let guestsDict: [String: Any] = Self.uploadGuestsAndBuildDict(for: event)
+        async let guestsDict: [String: Any] = Self.uploadGuestsAndBuildDict(
+            for: event,
+            guestImages: guestImages
+        )
 
         // Image task: upload if new, otherwise reuse existing
         let imagesTask = Task<[String], Error> {
@@ -80,9 +82,78 @@ class FirebaseEventService: EventService, @unchecked Sendable {
             eventDict: payload
         )
 
-        // Return updated model with image URLs
+        // Return updated model with image URLs and guest image URLs
         var updatedEvent = event
         updatedEvent.setImageURLs(imageURLs)
+        
+        // Update guest objects with their uploaded image URLs
+        if let guestsArray = guests["guests"] as? [[String: Any]] {
+            // Clear existing guests and add updated ones
+            var guestsToAdd: [Guest] = []
+            for guestDict in guestsArray {
+                if let guestId = UUID(uuidString: guestDict["id"] as? String ?? ""),
+                   let name = guestDict["name"] as? String,
+                   let role = guestDict["role"] as? String,
+                   let imageUrl = guestDict["imageUrl"] as? String {
+                    
+                    do {
+                        let updatedGuest = try Guest(id: guestId, name: name, role: role, imageUrl: imageUrl.isEmpty ? nil : imageUrl)
+                        guestsToAdd.append(updatedGuest)
+                        print("✅ Updated guest \(name) with imageUrl: \(imageUrl.isEmpty ? "[EMPTY]" : imageUrl)")
+                    } catch {
+                        print("❌ Failed to create updated guest \(name): \(error.localizedDescription)")
+                    }
+                }
+            }
+            
+            // Replace guests with updated versions
+            updatedEvent = try Event(
+                id: updatedEvent.id,
+                title: updatedEvent.title,
+                description: updatedEvent.description,
+                date: updatedEvent.date,
+                timeRange: updatedEvent.timeRange,
+                location: updatedEvent.location,
+                createdBy: updatedEvent.createdBy
+            )
+            
+            // Set image URLs
+            updatedEvent.setImageURLs(imageURLs)
+            
+            // Add updated guests
+            for guest in guestsToAdd {
+                try? updatedEvent.addGuest(guest)
+            }
+            
+            // Add price details
+            for priceDetail in event.priceDetails {
+                updatedEvent.addPriceDetail(priceDetail)
+            }
+            
+            // Set hashtags
+            updatedEvent.hashtags = event.hashtags
+            
+            // Set interactions
+            for userID in event.likes {
+                updatedEvent.addLike(from: userID)
+            }
+            for userID in event.reservations {
+                updatedEvent.addReservation(from: userID)
+            }
+            for userID in event.interactions {
+                updatedEvent.addInteraction(from: userID)
+            }
+            
+            // Set Stripe info if available
+            if let stripeProductId = event.stripeProductId,
+               let stripeConnectedAccountId = event.stripeConnectedAccountId {
+                updatedEvent.setStripeProductInfo(
+                    productId: stripeProductId,
+                    connectedAccountId: stripeConnectedAccountId
+                )
+            }
+        }
+        
         return updatedEvent
     }
     
@@ -210,21 +281,80 @@ class FirebaseEventService: EventService, @unchecked Sendable {
     }
 }
 
+// MARK: - Sendable guest data structure for concurrency
+struct GuestUploadResult: Sendable {
+    let id: String
+    let name: String
+    let role: String
+    let imageUrl: String
+}
+
 extension FirebaseEventService {
     private static func uploadGuestsAndBuildDict(
         for event: Event,
+        guestImages: [UUID: UIImage]
     ) async throws -> [String: Any] {
         let guests = event.guests
         guard !guests.isEmpty else { return [:] }
         
-        // Convert guests to dictionary format (no image upload since Guest model doesn't have UIImage)
-        let guestsDictArray = guests.map { guest in
+        print("🔄 uploadGuestsAndBuildDict called with:")
+        print("  - Event guests count: \(guests.count)")
+        print("  - GuestImages dictionary count: \(guestImages.count)")
+        print("  - GuestImages keys: \(Array(guestImages.keys))")
+        print("  - Event guest IDs: \(guests.map { $0.id })")
+        
+        // Upload guest images and build results concurrently
+        let guestResults = try await withThrowingTaskGroup(of: GuestUploadResult.self) { group in
+            for guest in guests {
+                group.addTask {
+                    var imageUrl = guest.imageUrl ?? ""
+                    
+                    // Upload guest image if available
+                    if let image = guestImages[guest.id] {
+                        print("🔄 Uploading image for guest: \(guest.name) (ID: \(guest.id))")
+                        do {
+                            imageUrl = try await FirebaseEventImageManager.uploadGuestImage(
+                                image: image,
+                                eventId: event.id,
+                                guestId: guest.id
+                            )
+                            print("✅ Guest image uploaded successfully: \(imageUrl)")
+                        } catch {
+                            print("❌ Failed to upload guest image for \(guest.name): \(error.localizedDescription)")
+                            print("❌ Full error: \(error)")
+                            // Keep original imageUrl or empty string
+                        }
+                    } else {
+                        print("⚠️ No image found for guest \(guest.name) in guestImages dictionary")
+                        print("⚠️ Available guest IDs in dictionary: \(Array(guestImages.keys))")
+                        print("⚠️ Current guest ID: \(guest.id)")
+                        print("⚠️ Guest's existing imageUrl: \(guest.imageUrl ?? "[nil]")")
+                    }
+                    
+                    return GuestUploadResult(
+                        id: guest.id.uuidString,
+                        name: guest.name,
+                        role: guest.role,
+                        imageUrl: imageUrl
+                    )
+                }
+            }
+            
+            var results: [GuestUploadResult] = []
+            for try await result in group {
+                results.append(result)
+            }
+            return results
+        }
+        
+        // Convert results to dictionary format
+        let guestsDictArray = guestResults.map { result in
             [
-                "id": guest.id.uuidString,
-                "name": guest.name,
-                "role": guest.role,
-                "imageUrl": guest.imageUrl ?? ""
-            ]
+                "id": result.id,
+                "name": result.name,
+                "role": result.role,
+                "imageUrl": result.imageUrl
+            ] as [String: Any]
         }
         
         return ["guests": guestsDictArray]

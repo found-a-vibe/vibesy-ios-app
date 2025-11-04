@@ -210,8 +210,9 @@ struct PriceDetails: Hashable, Codable, Identifiable {
          availableUntil: Date? = nil,
          maxQuantity: Int? = nil) throws {
         
-        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-              title.count <= Self.maxTitleLength else {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalTitle = trimmedTitle.isEmpty ? "External Ticket" : trimmedTitle
+        guard finalTitle.count <= Self.maxTitleLength else {
             throw PriceError.invalidTitle(title)
         }
         
@@ -230,7 +231,7 @@ struct PriceDetails: Hashable, Codable, Identifiable {
         }
         
         self.id = id
-        self._title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        self._title = finalTitle
         self._price = price
         self._currency = currency
         self._type = type

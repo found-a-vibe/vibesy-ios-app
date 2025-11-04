@@ -154,35 +154,7 @@ class StripeAPIService: ObservableObject {
         }
     }
     
-    /// Verify Connect onboarding completion
-    func verifyOnboardingComplete(email: String, accountId: String?) async throws -> ConnectStatusResponse {
-        guard let url = URL(string: "\(baseURL)/connect/verify-onboarding") else {
-            throw APIError.invalidResponse
-        }
-        
-        var body: [String: Any] = ["email": email]
-        if let accountId = accountId {
-            body["account_id"] = accountId
-        }
-        
-        do {
-            let bodyData = try JSONSerialization.data(withJSONObject: body)
-            
-            logger.info("Verifying onboarding completion for \(email)")
-            
-            return try await networkService.post(
-                url: url,
-                body: bodyData,
-                headers: [:],
-                responseType: ConnectStatusResponse.self,
-                retryConfig: .default
-            )
-        } catch {
-            logger.error("Failed to verify onboarding: \(error.localizedDescription)")
-            try handleAPIError(error)
-            throw error
-        }
-    }
+    // Note: Removed verifyOnboardingComplete method - using getConnectStatus directly for reliability
     
     /// Disconnect Stripe Connect account
     func disconnectStripe(email: String) async throws {
@@ -206,6 +178,36 @@ class StripeAPIService: ObservableObject {
             )
         } catch {
             logger.error("Failed to disconnect Stripe: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
+    }
+    
+    /// Get Stripe Connect dashboard link for host
+    func getConnectDashboardLink(email: String, accountId: String) async throws -> ConnectDashboardResponse {
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.connectDashboard)") else {
+            throw APIError.invalidResponse
+        }
+        
+        let body = [
+            "email": email,
+            "account_id": accountId
+        ]
+        
+        do {
+            let bodyData = try JSONSerialization.data(withJSONObject: body)
+            
+            logger.info("Getting Connect dashboard link for \(email)")
+            
+            return try await networkService.post(
+                url: url,
+                body: bodyData,
+                headers: [:],
+                responseType: ConnectDashboardResponse.self,
+                retryConfig: .default
+            )
+        } catch {
+            logger.error("Failed to get Connect dashboard link: \(error.localizedDescription)")
             try handleAPIError(error)
             throw error
         }
@@ -252,6 +254,101 @@ class StripeAPIService: ObservableObject {
             )
         } catch {
             logger.error("Failed to verify ticket: \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
+    }
+    
+    // MARK: - Invoice Methods
+    
+    /// Get invoice details for a payment intent
+    func getInvoiceDetails(paymentIntentId: String) async throws -> InvoiceResponse {
+        guard !paymentIntentId.isEmpty else {
+            logger.error("Empty payment intent ID provided")
+            throw APIError.invalidResponse
+        }
+        
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.invoiceDetails)/\(paymentIntentId)") else {
+            logger.error("Failed to construct invoice URL for payment intent: \(paymentIntentId)")
+            throw APIError.invalidResponse
+        }
+        
+        do {
+            logger.info("Getting invoice details for payment intent: \(paymentIntentId)")
+            
+            let response = try await networkService.get(
+                url: url,
+                headers: ["Content-Type": "application/json"],
+                responseType: InvoiceResponse.self,
+                retryConfig: .default
+            )
+            
+            logger.info("Successfully retrieved invoice details for: \(paymentIntentId)")
+            return response
+        } catch {
+            logger.error("Failed to get invoice details for \(paymentIntentId): \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
+    }
+    
+    /// Get payment receipt for a payment intent
+    func getPaymentReceipt(paymentIntentId: String) async throws -> PaymentReceiptResponse {
+        guard !paymentIntentId.isEmpty else {
+            logger.error("Empty payment intent ID provided for receipt")
+            throw APIError.invalidResponse
+        }
+        
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.paymentReceipt)/\(paymentIntentId)") else {
+            logger.error("Failed to construct receipt URL for payment intent: \(paymentIntentId)")
+            throw APIError.invalidResponse
+        }
+        
+        do {
+            logger.info("Getting payment receipt for payment intent: \(paymentIntentId)")
+            
+            let response = try await networkService.get(
+                url: url,
+                headers: ["Content-Type": "application/json"],
+                responseType: PaymentReceiptResponse.self,
+                retryConfig: .default
+            )
+            
+            logger.info("Successfully retrieved payment receipt for: \(paymentIntentId)")
+            return response
+        } catch {
+            logger.error("Failed to get payment receipt for \(paymentIntentId): \(error.localizedDescription)")
+            try handleAPIError(error)
+            throw error
+        }
+    }
+    
+    /// Get QR code data with invoice information for a ticket
+    func getTicketQRWithInvoice(ticketId: Int) async throws -> QRInvoiceData {
+        guard ticketId > 0 else {
+            logger.error("Invalid ticket ID provided: \(ticketId)")
+            throw APIError.invalidResponse
+        }
+        
+        guard let url = URL(string: "\(baseURL)\(StripeConfig.Endpoints.ticketQR)/\(ticketId)/invoice") else {
+            logger.error("Failed to construct QR invoice URL for ticket: \(ticketId)")
+            throw APIError.invalidResponse
+        }
+        
+        do {
+            logger.info("Getting QR invoice data for ticket: \(ticketId)")
+            
+            let response = try await networkService.get(
+                url: url,
+                headers: ["Content-Type": "application/json"],
+                responseType: QRInvoiceData.self,
+                retryConfig: .default
+            )
+            
+            logger.info("Successfully retrieved QR invoice data for ticket: \(ticketId)")
+            return response
+        } catch {
+            logger.error("Failed to get QR invoice data for ticket \(ticketId): \(error.localizedDescription)")
             try handleAPIError(error)
             throw error
         }
