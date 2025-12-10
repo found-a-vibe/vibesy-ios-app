@@ -21,8 +21,8 @@ public struct CustomChannelHeader: ToolbarContent {
     public var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             Text(title)
-                .foregroundStyle(.espresso)
-                .font(.abeezeeItalic(size: 26))
+                .foregroundStyle(.goldenBrown)
+                .font(.aBeeZeeRegular(size: 26))
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         ToolbarItem(placement: .navigationBarTrailing) {
@@ -30,7 +30,7 @@ public struct CustomChannelHeader: ToolbarContent {
                 isNewChatShown = true
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .foregroundStyle(.sandstone)
+                    .foregroundStyle(.black)
             }
         }
     }

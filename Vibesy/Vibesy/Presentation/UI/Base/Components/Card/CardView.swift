@@ -30,6 +30,7 @@ struct CardView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var isProcessingAction = false
+    @State private var flipRotation: Double = 0
     
     // MARK: - Properties
     let event: Event
@@ -58,23 +59,24 @@ struct CardView: View {
     
     // MARK: - Body
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Main image and overlays
-            ZStack(alignment: .top) {
-                eventImage
-                imageOverlays
-            }
+        ZStack {
+            // Front side of the card
+            cardFront
+                .opacity(flipRotation < 90 ? 1 : 0)
+                .rotation3DEffect(
+                    .degrees(flipRotation),
+                    axis: (x: 0, y: 1, z: 0)
+                )
             
-            // Event info at bottom
-            EventInfoView(
-                title: event.title,
-                location: event.location,
-                description: event.description,
-                showFullEventInfo: $showFullEventInfo
-            )
+            // Back side of the card
+            cardBack
+                .opacity(flipRotation >= 90 ? 1 : 0)
+                .rotation3DEffect(
+                    .degrees(flipRotation - 180),
+                    axis: (x: 0, y: 1, z: 0)
+                )
         }
         .frame(width: SizeConstants.width, height: SizeConstants.height)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
         .offset(x: xOffset)
         .rotationEffect(.degrees(degrees))
         .animation(
@@ -82,9 +84,6 @@ struct CardView: View {
             value: xOffset
         )
         .gesture(swipeGesture)
-        .fullScreenCover(isPresented: $showFullEventInfo) {
-            eventDetailView
-        }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -100,11 +99,47 @@ struct CardView: View {
         .accessibilityLabel("Event card: \(event.title)")
         .accessibilityHint("Double tap to view details, swipe left to pass, swipe right to like")
         .accessibilityAction(.magicTap) {
-            showFullEventInfo = true
+            flipCard()
+        }
+        .onChange(of: showFullEventInfo) { _, newValue in
+            withAnimation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.8)) {
+                flipRotation = newValue ? 180 : 0
+            }
+            if newValue {
+                eventModel.setCurrentEventDetails(event)
+            } else {
+                eventModel.clearCurrentEventDetails()
+            }
         }
     }
     
     // MARK: - View Components
+    @ViewBuilder
+    private var cardFront: some View {
+        ZStack(alignment: .bottom) {
+            // Main image and overlays
+            ZStack(alignment: .top) {
+                eventImage
+                imageOverlays
+            }
+            
+            // Event info at bottom
+            EventInfoView(
+                title: event.title,
+                location: event.location,
+                description: event.description,
+                showFullEventInfo: $showFullEventInfo
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+    
+    @ViewBuilder
+    private var cardBack: some View {
+        eventDetailView
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+    
     @ViewBuilder
     private var eventImage: some View {
         KFImage(URL(string: currentImageURL))
@@ -158,17 +193,14 @@ struct CardView: View {
         NavigationStack {
             EventScreenView(
                 handleNavigation: true,
-                systemImageName: "xmark"
+                systemImageName: "xmark",
+                cardView: true
             ) { direction in
                 if direction != .forward {
-                    eventModel.clearCurrentEventDetails()
                     showFullEventInfo = false
                 }
             }
             .accessibilityAddTraits(.isModal)
-        }
-        .onAppear {
-            eventModel.setCurrentEventDetails(event)
         }
     }
     
@@ -181,6 +213,10 @@ struct CardView: View {
 
 // MARK: - Private Methods
 private extension CardView {
+    func flipCard() {
+        showFullEventInfo.toggle()
+    }
+    
     func showError(_ message: String) {
         errorMessage = message
         showErrorAlert = true

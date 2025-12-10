@@ -27,7 +27,7 @@ struct NotificationHeaderView: View {
             
             Text("Notifications")
                 .foregroundStyle(.espresso)
-                .font(.abeezeeItalic(size: 26))
+                .font(.aBeeZeeRegular(size: 26))
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(.horizontal)
@@ -88,7 +88,7 @@ struct NotificationView: View {
                                         }
                                     }) {
                                         Text("Accept")
-                                            .font(.abeezeeItalic(size: 12))
+                                            .font(.aBeeZeeRegular(size: 12))
                                             .foregroundColor(.white)
                                             .frame(width: 124, height: 28)
                                             .padding(2)
@@ -104,7 +104,7 @@ struct NotificationView: View {
                                         
                                     }) {
                                         Text("Ignore")
-                                            .font(.abeezeeItalic(size: 12))
+                                            .font(.aBeeZeeRegular(size: 12))
                                             .foregroundColor(.espresso)
                                             .frame(width: 124, height: 28)
                                             .padding(2)

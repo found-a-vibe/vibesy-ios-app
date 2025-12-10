@@ -7,12 +7,12 @@
 import SwiftUI
 
 extension Font {
-    public static func abeezee(size: CGFloat) -> Font {
+    public static func aBeeZeeRegular(size: CGFloat) -> Font {
         Font.custom("ABeeZee-Regular", size: size)
     }
     
-    public static func abeezeeItalic(size: CGFloat) -> Font {
-        Font.custom("ABeeZee-Italic", size: size)
+    public static func tanHeadline(size: CGFloat) -> Font {
+        Font.custom("TANHEADLINE-Regular", size: size)
     }
     
     public static func poppins(size: CGFloat) -> Font {

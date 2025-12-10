@@ -17,7 +17,7 @@ struct NoCardView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 120, height: 120)
-                .foregroundColor(.sandstone.opacity(0.6))
+                .foregroundColor(.goldenBrown.opacity(0.6))
             
             // Informational text
             Text("You're all caught up!")

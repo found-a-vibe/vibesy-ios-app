@@ -33,12 +33,12 @@ struct NewEventView0: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
-                    BackButtonView(systemImageName: "multiply") {
+                    BackButtonView(systemImageName: "multiply", color: .goldenBrown) {
                         isNewEventViewPresented.toggle()
                     }
                     Text("Post Event")
-                        .font(.abeezeeItalic(size: 26))
-                        .foregroundStyle(.espresso)
+                        .font(.aBeeZeeRegular(size: 26))
+                        .foregroundStyle(.goldenBrown)
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
@@ -47,10 +47,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Title")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     HStack {
                         Image("Event")
@@ -77,10 +77,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Date")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     HStack {
                         Image("Calendar")
@@ -105,10 +105,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Time")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     Button(action: {
                         isSelectingTime.toggle()
@@ -147,10 +147,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Location")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     Button(action: {
                         showSearchService.toggle()
@@ -206,10 +206,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Details")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     TextEditor(text: $eventDescription)
                         .frame(height: 100)
@@ -230,10 +230,10 @@ struct NewEventView0: View {
                 VStack(alignment: .leading) {
                     HStack {
                         Text("Event Tags")
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("*")
                             .foregroundColor(.red)
-                            .font(.abeezee(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                     }
                     TagField(tags: $tags, placeholder: "Add Tags..")
                         .accentColor(.espresso)
@@ -281,7 +281,7 @@ struct NewEventView0: View {
                     },
                     label: {
                         Text("Next")
-                            .font(.custom("ABeeZee-Italic", size: 20))
+                            .font(.aBeeZeeRegular(size: 20))
                             .frame(maxWidth: .infinity, maxHeight: 51)
                             .foregroundStyle(.white)
                     }
@@ -289,7 +289,7 @@ struct NewEventView0: View {
                 .frame(height: 51)
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 8))
-                .tint(.espresso)
+                .tint(.goldenBrown)
                 .opacity(validationModel.showValidationErrors && validationModel.hasAnyErrors ? 0.6 : 1.0)
                 .padding(.vertical)
             }

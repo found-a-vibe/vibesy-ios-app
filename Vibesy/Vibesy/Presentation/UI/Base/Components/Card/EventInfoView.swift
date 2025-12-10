@@ -18,13 +18,13 @@ struct EventInfoView: View {
         HStack {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                        .font(.abeezeeItalic(size: 22))
-                        .foregroundStyle(.sandstone)
-                Text(location)
-                        .font(.abeezeeItalic(size: 18))
+                    .font(.aBeeZeeRegular(size: 22))
                         .foregroundStyle(.espresso)
+                Text(location)
+                        .font(.aBeeZeeRegular(size: 18))
+                        .foregroundStyle(.goldenBrown)
                 Text(description)
-                        .font(.abeezeeItalic(size: 14))
+                        .font(.aBeeZeeRegular(size: 14))
             }
             .padding()
             .background(.white.opacity(0.8))

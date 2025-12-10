@@ -77,7 +77,7 @@ struct ReservationSheet: View {
                                 
                                 HStack {
                                     Image(systemName: "location")
-                                        .foregroundColor(.sandstone)
+                                        .foregroundColor(.goldenBrown)
                                     Text(event.location)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
@@ -85,7 +85,7 @@ struct ReservationSheet: View {
                                 
                                 HStack {
                                     Image(systemName: "calendar")
-                                        .foregroundColor(.sandstone)
+                                        .foregroundColor(.goldenBrown)
                                     Text("\(event.date) • \(event.timeRange)")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
@@ -244,7 +244,7 @@ struct ReservationSheet: View {
                 
                 HStack {
                     Image(systemName: "person.2.fill")
-                        .foregroundColor(.sandstone)
+                        .foregroundColor(.goldenBrown)
                     Text("Join other attendees")
                         .font(.subheadline)
                 }
@@ -295,7 +295,7 @@ struct ReservationSheet: View {
                         } label: {
                             Image(systemName: "minus")
                                 .font(.title2)
-                                .foregroundColor(quantity > 1 ? .sandstone : .gray)
+                                .foregroundColor(quantity > 1 ? .goldenBrown : .gray)
                                 .frame(width: 44, height: 44)
                                 .background(Color(.systemGray5))
                                 .clipShape(Circle())
@@ -318,7 +318,7 @@ struct ReservationSheet: View {
                         } label: {
                             Image(systemName: "plus")
                                 .font(.title2)
-                                .foregroundColor(quantity < 10 ? .sandstone : .gray)
+                                .foregroundColor(quantity < 10 ? .goldenBrown : .gray)
                                 .frame(width: 44, height: 44)
                                 .background(Color(.systemGray5))
                                 .clipShape(Circle())
@@ -356,7 +356,7 @@ struct ReservationSheet: View {
                             Text(formatCurrency(totalAmount))
                                 .font(.title3)
                                 .fontWeight(.bold)
-                                .foregroundColor(.sandstone)
+                                .foregroundColor(.goldenBrown)
                         }
                     }
                 }
@@ -562,7 +562,7 @@ struct PriceOptionView: View {
                         Text(priceDetail.formattedPrice)
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(.sandstone)
+                            .foregroundColor(.goldenBrown)
                     }
                     
                     if let description = priceDetail.description {
@@ -586,14 +586,14 @@ struct PriceOptionView: View {
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? .sandstone : .gray)
+                    .foregroundColor(isSelected ? .goldenBrown : .gray)
                     .font(.title2)
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.sandstone : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
-                    .fill(isSelected ? Color.sandstone.opacity(0.1) : Color.clear)
+                    .stroke(isSelected ? Color.goldenBrown : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
+                    .fill(isSelected ? Color.goldenBrown.opacity(0.1) : Color.clear)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -664,7 +664,7 @@ struct PaymentSuccessView: View {
                         Text(formatCurrency(selectedPrice.price * Decimal(quantity)))
                             .font(.headline)
                             .fontWeight(.bold)
-                            .foregroundColor(.sandstone)
+                            .foregroundColor(.goldenBrown)
                     }
                 }
                 .padding()
@@ -707,7 +707,7 @@ struct PaymentSuccessView: View {
 //            .frame(maxWidth: .infinity, minHeight: 50)
 //            .background(
 //                LinearGradient(
-//                    gradient: Gradient(colors: [.sandstone, .espresso]),
+//                    gradient: Gradient(colors: [.goldenBrown, .espresso]),
 //                    startPoint: .leading,
 //                    endPoint: .trailing
 //                )

@@ -88,7 +88,7 @@ struct MainView: View {
         
         // Configure background
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(Color(.sandstone))
+        appearance.backgroundColor = UIColor(Color(.goldenBrown))
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         
         // Configure normal state
@@ -99,9 +99,9 @@ struct MainView: View {
         ]
         
         // Configure selected state  
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -111,9 +111,9 @@ struct MainView: View {
             .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 12, weight: .medium)
         ]
-        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -122,9 +122,9 @@ struct MainView: View {
             .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 12, weight: .medium)
         ]
-        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.inlineLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -152,7 +152,7 @@ struct MainView: View {
         
         // Configure background
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(Color(.sandstone))
+        appearance.backgroundColor = UIColor(Color(.goldenBrown))
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         
         // Configure normal state
@@ -163,9 +163,9 @@ struct MainView: View {
         ]
         
         // Configure selected state  
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -175,9 +175,9 @@ struct MainView: View {
             .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 12, weight: .medium)
         ]
-        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.compactInlineLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -186,9 +186,9 @@ struct MainView: View {
             .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 12, weight: .medium)
         ]
-        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.espresso))
+        appearance.inlineLayoutAppearance.selected.iconColor = UIColor(Color(.goldenBrown))
         appearance.inlineLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(.espresso)),
+            .foregroundColor: UIColor(Color(.goldenBrown)),
             .font: UIFont.systemFont(ofSize: 12, weight: .semibold)
         ]
         
@@ -314,7 +314,7 @@ struct MainView: View {
                     }
                     .tag(4)
             }
-            .tint(.sandstone)
+            .tint(.goldenBrown)
             .onAppear {
                 applyTabBarAppearance()
             }
@@ -428,7 +428,7 @@ struct TabIndicator: View {
         if differentiateWithoutColor {
             return Color.primary
         } else {
-            return Color(.espresso)
+            return Color(.goldenBrown)
         }
     }
 }

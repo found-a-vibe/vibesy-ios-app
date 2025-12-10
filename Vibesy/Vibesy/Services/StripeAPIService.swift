@@ -105,13 +105,20 @@ class StripeAPIService: ObservableObject {
             throw APIError.invalidResponse
         }
         
-        let body = [
+        // Build body with only non-empty optional fields
+        var body: [String: Any] = [
             "email": email,
-            "first_name": firstName ?? "",
-            "last_name": lastName ?? "",
             "return_url": StripeConfig.connectReturnURL,
             "refresh_url": StripeConfig.connectRefreshURL
-        ] as [String: Any]
+        ]
+        
+        // Only include first_name and last_name if they have non-empty values
+        if let firstName = firstName, !firstName.isEmpty {
+            body["first_name"] = firstName
+        }
+        if let lastName = lastName, !lastName.isEmpty {
+            body["last_name"] = lastName
+        }
         
         do {
             let bodyData = try JSONSerialization.data(withJSONObject: body)

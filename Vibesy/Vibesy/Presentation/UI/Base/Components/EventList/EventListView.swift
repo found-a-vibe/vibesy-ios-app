@@ -47,8 +47,8 @@ struct EventsHeaderView: View {
             }
             Spacer()
             Text(headerText)
-                .foregroundStyle(.espresso)
-                .font(.abeezeeItalic(size: 26))
+                .foregroundStyle(.goldenBrown)
+                .font(.aBeeZeeRegular(size: 26))
             Spacer()
         }
         .padding(.horizontal)
@@ -104,7 +104,7 @@ struct EventCard: View {
                             Spacer()
                             VStack(alignment: .leading) {
                                 Text(event.title)
-                                    .font(.abeezeeItalic(size: 16))
+                                    .font(.aBeeZeeRegular(size: 16))
                                     .foregroundStyle(.white)
                                     .bold()
                             }

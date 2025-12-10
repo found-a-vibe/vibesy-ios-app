@@ -8,9 +8,42 @@
 import Foundation
 
 struct StripeConfig {
+    // MARK: - Environment Configuration
+    private static let configPlistName: String = {
+        #if DEBUG
+        return "StripeKeys-Development"
+        #else
+        return "StripeKeys-Production"
+        #endif
+    }()
+    
+    private static func loadConfig() -> [String: Any]? {
+        guard let path = Bundle.main.path(forResource: configPlistName, ofType: "plist"),
+              let config = NSDictionary(contentsOfFile: path) as? [String: Any] else {
+            print("⚠️ Warning: Could not load \(configPlistName).plist")
+            return nil
+        }
+        return config
+    }
+    
     // MARK: - Stripe Configuration
-    static let publishableKey = "pk_test_51S99XIBpogKxZeV1ai7zkBp6jABrlHsbvbt2oHaWd90mETLkwqmPRoheP4So1FD2aUJQmhh3IlwCSG5VBTEuMlFk00pHTe8881" // Replace with your actual key
-    static let merchantId = "merchant.com.vibesy" // Replace with your Apple Pay merchant ID
+    static let publishableKey: String = {
+        guard let config = loadConfig(),
+              let key = config["StripePublishableKey"] as? String else {
+            print("⚠️ Warning: Using fallback test key - configure \(configPlistName).plist")
+            return "pk_test_51S99XIBpogKxZeV1ai7zkBp6jABrlHsbvbt2oHaWd90mETLkwqmPRoheP4So1FD2aUJQmhh3IlwCSG5VBTEuMlFk00pHTe8881"
+        }
+        return key
+    }()
+    
+    static let merchantId: String = {
+        guard let config = loadConfig(),
+              let id = config["MerchantId"] as? String else {
+            return "merchant.com.vibesy"
+        }
+        return id
+    }()
+    
     static let merchantCountryCode = "US"
     static let currency = "usd"
     
@@ -19,11 +52,13 @@ struct StripeConfig {
     static let returnURL = "vibesy://payment_complete"
     
     // MARK: - Backend API Configuration
-    #if DEBUG
-    static let backendURL = "https://one-time-password-service.onrender.com"
-    #else
-    static let backendURL = "https://one-time-password-service.onrender.com"
-    #endif
+    static let backendURL: String = {
+        guard let config = loadConfig(),
+              let url = config["BackendURL"] as? String else {
+            return "https://one-time-password-service.onrender.com"
+        }
+        return url
+    }()
 
     // MARK: - Connect URLs
     // Note: Stripe requires valid HTTP/HTTPS URLs, not custom schemes

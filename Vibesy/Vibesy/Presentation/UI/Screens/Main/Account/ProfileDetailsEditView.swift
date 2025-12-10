@@ -48,7 +48,7 @@ struct ProfileDetailsEditView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Text("Edit Profile")
-                        .font(.abeezeeItalic(size: 24))
+                        .font(.aBeeZeeRegular(size: 24))
                         .foregroundStyle(.espresso)
                         .frame(maxWidth: .infinity, alignment: .center)
                     Spacer()
@@ -90,13 +90,13 @@ struct ProfileDetailsEditView: View {
                             }
                     } else {
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(.sandstone.opacity(0.3))
+                            .fill(.goldenBrown.opacity(0.3))
                             .frame(width: 149, height: 144)
                             .overlay(alignment: .bottom) {
                                 Image(systemName: "person.fill")
                                     .resizable()
                                     .scaledToFit()
-                                    .foregroundStyle(.sandstone)
+                                    .foregroundStyle(.goldenBrown)
                                     .frame(width: 114.5, height: 112)
                             }
                             .overlay(alignment: .bottomTrailing) {
@@ -105,7 +105,7 @@ struct ProfileDetailsEditView: View {
                                     .resizable()
                                     .frame(width: 28, height: 28)
                                     .padding(4)
-                                    .foregroundStyle(.espresso)
+                                    .foregroundStyle(.goldenBrown)
                             }
                     }
                 }

@@ -38,8 +38,8 @@ struct ExploreHeaderView: View {
             }
             Spacer()
             Text("Explore")
-                .foregroundStyle(.espresso)
-                .font(.abeezeeItalic(size: 26))
+                .foregroundStyle(.goldenBrown)
+                .font(.aBeeZeeRegular(size: 26))
             Spacer()
             RoundedRectangle(cornerRadius: 10)
                 .overlay(alignment: .center) {
@@ -47,7 +47,6 @@ struct ExploreHeaderView: View {
                         .renderingMode(.template)
                         .resizable()
                         .frame(width: 28, height: 28)
-                        .foregroundStyle(.sandstone)
                 }
                 .frame(maxWidth: 38, maxHeight: 35)
                 .foregroundStyle(.white)

@@ -9,6 +9,7 @@ import Foundation
 import Network
 import Combine
 import os.log
+import FirebaseAuth
 
 // MARK: - Network Errors
 enum NetworkError: LocalizedError, Equatable {
@@ -227,12 +228,71 @@ final class EnhancedNetworkService: ObservableObject {
     ) async throws -> T {
         
         do {
+            // Auto-inject Firebase auth token if user is authenticated
+            var authenticatedRequest = request
+            if let user = Auth.auth().currentUser {
+                do {
+                    logger.debug("Getting Firebase token for user: \(user.uid)")
+                    let token = try await user.getIDToken()
+                    authenticatedRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                    logger.debug("Added Firebase auth token to request")
+                } catch {
+                    logger.error("Failed to get Firebase token: \(error.localizedDescription)")
+                    logger.error("Firebase user UID: \(user.uid), email: \(user.email ?? "none")")
+                    // Continue without token - backend will return 401 for protected routes
+                }
+            } else {
+                logger.warning("No Firebase user authenticated - request will be sent without auth token")
+            }
+            
             logger.debug("Performing request to: \(request.url?.absoluteString ?? "unknown") (attempt \(attempt + 1))")
             
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await session.data(for: authenticatedRequest)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw NetworkError.invalidResponse
+            }
+            
+            // Special handling for 401 - try to refresh token and retry
+            if httpResponse.statusCode == 401 {
+                if let user = Auth.auth().currentUser {
+                    logger.info("Got 401 Unauthorized, attempting token refresh...")
+                    logger.info("User UID: \(user.uid), Email: \(user.email ?? "none")")
+                    do {
+                        // Force refresh the Firebase token
+                        logger.debug("Calling getIDToken(forcingRefresh: true)...")
+                        let freshToken = try await user.getIDToken(forcingRefresh: true)
+                        logger.info("Successfully refreshed token")
+                        
+                        // Retry request with fresh token
+                        var retryRequest = authenticatedRequest
+                        retryRequest.setValue("Bearer \(freshToken)", forHTTPHeaderField: "Authorization")
+                        
+                        logger.info("Token refreshed, retrying request...")
+                        let (retryData, retryResponse) = try await session.data(for: retryRequest)
+                        
+                        guard let retryHttpResponse = retryResponse as? HTTPURLResponse else {
+                            throw NetworkError.invalidResponse
+                        }
+                        
+                        // Validate the retry response
+                        try validateHTTPResponse(retryHttpResponse, data: retryData)
+                        
+                        // Decode and return
+                        let decoder = JSONDecoder()
+                        decoder.dateDecodingStrategy = .iso8601
+                        let result = try decoder.decode(responseType, from: retryData)
+                        logger.info("Request successful after token refresh")
+                        return result
+                        
+                    } catch {
+                        logger.error("Token refresh failed: \(error.localizedDescription)")
+                        throw NetworkError.authenticationRequired
+                    }
+                } else {
+                    logger.warning("Got 401 but no authenticated user found")
+                    throw NetworkError.authenticationRequired
+                }
             }
             
             // Handle HTTP status codes

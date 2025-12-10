@@ -25,15 +25,15 @@ struct SettingsView: View {
     var body: some View {
         VStack {
             HStack {
-                BackButtonView {
+                BackButtonView(color: .goldenBrown) {
                     if let navigate {
                         navigate(.back)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text("Settings")
-                    .font(.abeezeeItalic(size: 24))
-                    .foregroundStyle(.espresso)
+                    .font(.aBeeZeeRegular(size: 24))
+                    .foregroundStyle(.goldenBrown)
                     .frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
                     .frame(maxWidth: .infinity, alignment: .trailing)

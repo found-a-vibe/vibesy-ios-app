@@ -121,10 +121,11 @@ struct OTPVerificationView: View {
             .font(.title2)
             .focused($focusField, equals: field)
             .frame(width:  50, height:  50)
-            .background(
+            .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.blue, lineWidth: 2)
+                    .stroke(Color.gray, lineWidth: 1)
             )
+            .background(.white)
             .onChange(of: text.wrappedValue) {_, newValue in
                 // 1) Filter out any non‐digits immediately
                 let filtered = newValue.filter { $0.isNumber }
@@ -162,115 +163,111 @@ struct OTPVerificationView: View {
     }
     
     var body: some View {
-        VStack {
+        ZStack(alignment: .top) {
             VStack(spacing: 12) {
-                Text("OTP Verification")
-                    .font(.abeezeeItalic(size: 26))
-                    .lineSpacing(6)
-                    .frame(width: 236, height: 60)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-            }
-            .padding(.vertical)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack(alignment: .leading, spacing: 16) {
-                Text("OTP Verification")
-                    .font(.abeezeeItalic(size: 26))
-                    .frame(maxWidth: .infinity, maxHeight: 43, alignment: .leading)
-                    .padding(.top)
-                Text("Enter the 4-digit verification code we sent to your email.")
-                    .font(.abeezee(size: 14))
-                    .opacity(0.8)
-                    .frame(maxWidth: 280, maxHeight: 43)
-                Text("If you don’t see the code in your inbox, please check your spam folder.")
-                    .font(.abeezee(size: 14))
-                    .opacity(0.8)
-                    .frame(maxWidth: 280, maxHeight: 43)
-                HStack(spacing: 12) {
-                    // For each box, we call a helper that sets up the TextField + onChange logic
-                    otpTextField(
-                        text: $code1,
-                        prevText: $prevCode1,
-                        field: .field1,
-                        nextField: .field2,
-                        prevField: nil
-                    )
-                    otpTextField(
-                        text: $code2,
-                        prevText: $prevCode2,
-                        field: .field2,
-                        nextField: .field3,
-                        prevField: .field1
-                    )
-                    otpTextField(
-                        text: $code3,
-                        prevText: $prevCode3,
-                        field: .field3,
-                        nextField: .field4,
-                        prevField: .field2
-                    )
-                    otpTextField(
-                        text: $code4,
-                        prevText: $prevCode4,
-                        field: .field4,
-                        nextField: nil,
-                        prevField: .field3
-                    )
-                }
-                .padding()
-                .onAppear {
-                    focusField = .field1
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                HStack {
-                    Text("OTP expires in 5 minutes")
-                        .font(.abeezee(size: 14))
-                        .opacity(0.8)
-                    Spacer()
-                    Button(
-                        action: {
-                            handleResend()
-                        },
-                        label: {
-                            Text("Resend OTP")
-                                .font(.abeezee(size: 14))
-                                .opacity(0.8)
-                        }
-                    )
-                }
-                .padding(.bottom)
-                
-                Button(
-                    action: {
-                        handleSubmit()
-                    },
-                    label: {
-                        Text("Submit")
-                            .font(.custom("ABeeZee-Italic", size: 20))
-                            .frame(maxWidth: .infinity, maxHeight: 51)
+                Image("VibesyTitle")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                VStack {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("OTP Verification")
+                            .font(.aBeeZeeRegular(size: 26))
                             .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, maxHeight: 43, alignment: .leading)
+                            .padding(.top)
+                        Text("Enter the 4-digit verification code we sent to your email.")
+                            .font(.aBeeZeeRegular(size: 14))
+                            .foregroundStyle(.white)
+                           
+                        Text("If you don’t see the code in your inbox, please check your spam folder.")
+                            .font(.aBeeZeeRegular(size: 14))
+                            .foregroundStyle(.white)
+                        HStack(spacing: 12) {
+                            // For each box, we call a helper that sets up the TextField + onChange logic
+                            otpTextField(
+                                text: $code1,
+                                prevText: $prevCode1,
+                                field: .field1,
+                                nextField: .field2,
+                                prevField: nil
+                            )
+                            otpTextField(
+                                text: $code2,
+                                prevText: $prevCode2,
+                                field: .field2,
+                                nextField: .field3,
+                                prevField: .field1
+                            )
+                            otpTextField(
+                                text: $code3,
+                                prevText: $prevCode3,
+                                field: .field3,
+                                nextField: .field4,
+                                prevField: .field2
+                            )
+                            otpTextField(
+                                text: $code4,
+                                prevText: $prevCode4,
+                                field: .field4,
+                                nextField: nil,
+                                prevField: .field3
+                            )
+                        }
+                        .padding()
+                        .onAppear {
+                            focusField = .field1
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        HStack {
+                            Text("OTP expires in 5 minutes")
+                                .font(.aBeeZeeRegular(size: 14))
+                                .opacity(0.8)
+                            Spacer()
+                            Button(
+                                action: {
+                                    handleResend()
+                                },
+                                label: {
+                                    Text("Resend OTP")
+                                        .font(.aBeeZeeRegular(size: 14))
+                                        .foregroundStyle(.espresso)
+                                }
+                            )
+                        }
+                        .padding(.bottom)
+                        
+                        Button(
+                            action: {
+                                handleSubmit()
+                            },
+                            label: {
+                                Text("Submit")
+                                    .font(.custom("ABeeZee-Italic", size: 20))
+                                    .frame(maxWidth: .infinity, maxHeight: 51)
+                                    .foregroundStyle(.white)
+                            }
+                        )
+                        .disabled(!allFieldsFilled)
+                        .frame(maxHeight: 51)
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.roundedRectangle(radius: 8))
+                        .tint(.goldenBrown)
+                        .padding(.vertical)
                     }
-                )
-                .disabled(!allFieldsFilled)
-                .frame(maxHeight: 51)
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.roundedRectangle(radius: 8))
-                .tint(.sandstone)
-                .padding(.vertical)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding()
+                }
+
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding()
-            .background(.white)
-            .clipShape(
-                .rect(
-                    topLeadingRadius: 60,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: 60
+            .background(
+                LinearGradient(
+                    gradient: Gradient(
+                        colors: [.espresso, .goldenBrown]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
             )
-            .edgesIgnoringSafeArea(.bottom)
         }
         .alert(isPresented: $showAlert) {
             Alert(
@@ -285,9 +282,8 @@ struct OTPVerificationView: View {
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    .sandstone,
-                    .goldenBrown,
-                    .espresso
+                    .espresso,
+                    .goldenBrown
                 ]), startPoint: .topLeading, endPoint: .bottomTrailing
             )
         )
@@ -303,6 +299,7 @@ struct OTPVerificationView: View {
                 hideKeyboard()
             }
         )
+        .edgesIgnoringSafeArea(.bottom)
         .ignoresSafeArea(.keyboard)
         .navigationBarBackButtonHidden()
         

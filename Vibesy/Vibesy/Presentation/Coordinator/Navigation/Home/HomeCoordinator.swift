@@ -9,6 +9,7 @@ import SwiftUI
 // Enum defining the pages managed by the WorkoutPageCoordinator
 enum HomePages: Hashable, Pages {
     case authenticationView
+    case onboardingView
     case forgotPasswordView
     case otpVerificationView
     case updatePasswordView
@@ -25,6 +26,8 @@ class HomePageCoordinator: ObservableObject, PageCoordinator {
         switch page {
         case .authenticationView:
             return AnyView(AuthenticationView())
+        case .onboardingView:
+            return AnyView(OnboardingView())
         case .forgotPasswordView:
             return AnyView(ForgotPasswordView())
         case .otpVerificationView:

@@ -15,16 +15,17 @@ struct UpdatePasswordView: View {
     @State var input: String = ""
     @State var goNext: Bool = false
     @State var isSecure: Bool = true
-    
+
     @FocusState private var emailFieldIsFocused: Bool
-    
+
     @State private var errorMessage: String = ""
-    
+
     @State private var showAlert: Bool = false
-    
+
     private func handleSubmit() {
         let newPassword = input
-        userPasswordModel.updatePassword(withNewPassword: newPassword) { result in
+        userPasswordModel.updatePassword(withNewPassword: newPassword) {
+            result in
             Task { @MainActor in
                 if let status = try? result.get().status, status == "OK" {
                     if let email = userPasswordModel.email {
@@ -36,103 +37,116 @@ struct UpdatePasswordView: View {
                     self.errorMessage = response.description
                     self.showAlert.toggle()
                 } else {
-                    self.errorMessage = "Unexpected error updating your password."
+                    self.errorMessage =
+                        "Unexpected error updating your password."
                     self.showAlert.toggle()
                 }
             }
         }
     }
-    
+
     var body: some View {
-        VStack {
+        ZStack(alignment: .top) {
             VStack(spacing: 12) {
-                Text("New Password")
-                    .font(.abeezeeItalic(size: 26))
-                    .lineSpacing(6)
-                    .frame(width: 236, height: 60)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-            }
-            .padding(.vertical)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack(spacing: 16) {
-                Text("Create New Password")
-                    .font(.abeezeeItalic(size: 26))
-                    .frame(maxWidth: .infinity, maxHeight: 43, alignment: .leading)
-                    .padding(.top)
-                
-                Text("You have successfully verified your email address.")
-                    .font(.abeezee(size: 14))
-                    .multilineTextAlignment(.leading)
-                    .opacity(0.8)
-                    .frame(maxWidth: .infinity, maxHeight: 43, alignment: .leading)
-                Text("Please create your new password")
-                    .font(.abeezee(size: 14))
-                    .frame(maxWidth: .infinity, maxHeight: 43, alignment: .leading)
-                TextFieldView(
-                    input: $input, isSecure: $isSecure,
-                    keyboardType: .default, iconName: "lock.fill",
-                    placeholder: "password"
-                )
-                .overlay(alignment: .trailing) {
-                    Image(systemName: isSecure ? "eye.slash" : "eye")
-                        .resizable()
-                        .frame(width: 20, height: 16)
-                        .onTapGesture {
-                            isSecure.toggle()
+                Image("VibesyTitle")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                VStack {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Create New Password")
+                            .font(.aBeeZeeRegular(size: 26))
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: 43,
+                                alignment: .leading
+                            )
+                            .padding(.top)
+                        
+                        Text("You have successfully verified your email address.")
+                            .font(.aBeeZeeRegular(size: 14))
+                            .multilineTextAlignment(.leading)
+                            .opacity(0.8)
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: 43,
+                                alignment: .leading
+                            )
+                        Text("Please create your new password")
+                            .font(.aBeeZeeRegular(size: 14))
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: 43,
+                                alignment: .leading
+                            )
+                        TextFieldView(
+                            input: $input,
+                            isSecure: $isSecure,
+                            keyboardType: .default,
+                            iconName: "lock.fill",
+                            placeholder: "password"
+                        )
+                        .overlay(alignment: .trailing) {
+                            Image(systemName: isSecure ? "eye.slash" : "eye")
+                                .resizable()
+                                .frame(width: 20, height: 16)
+                                .onTapGesture {
+                                    isSecure.toggle()
+                                }
+                                .padding()
                         }
-                        .padding()
-                }
-                .textInputAutocapitalization(.never)
-                .disableAutocorrection(true)
-                .focused($emailFieldIsFocused)
-                
-                Button(
-                    action: {
-                        handleSubmit()
-                    },
-                    label: {
-                        Text("Continue")
-                            .font(.custom("ABeeZee-Italic", size: 20))
-                            .frame(maxWidth: .infinity, maxHeight: 51)
-                            .foregroundStyle(.white)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .focused($emailFieldIsFocused)
+                        
+                        Button(
+                            action: {
+                                handleSubmit()
+                            },
+                            label: {
+                                Text("Continue")
+                                    .font(.custom("ABeeZee-Italic", size: 20))
+                                    .frame(maxWidth: .infinity, maxHeight: 51)
+                                    .foregroundStyle(.white)
+                            }
+                        )
+                        .alert(isPresented: $showAlert) {
+                            Alert(
+                                title: Text("An error has occured."),
+                                message: Text(errorMessage),
+                                dismissButton: .default(Text("OK"))
+                            )
+                        }
+                        .disabled(input.count < 6)
+                        .frame(maxHeight: 51)
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.roundedRectangle(radius: 8))
+                        .tint(.goldenBrown)
+                        .padding(.vertical)
                     }
-                )
-                .alert(isPresented: $showAlert) {
-                    Alert(
-                        title: Text("An error has occured."),
-                        message: Text(errorMessage),
-                        dismissButton: .default(Text("OK"))
-                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding()
                 }
-                .disabled(input.count < 6)
-                .frame(maxHeight: 51)
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.roundedRectangle(radius: 8))
-                .tint(.sandstone)
-                .padding(.vertical)
+
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding()
-            .background(.white)
-            .clipShape(
-                .rect(
-                    topLeadingRadius: 60,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: 60
+            .background(
+                LinearGradient(
+                    gradient: Gradient(
+                        colors: [.espresso, .goldenBrown]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
             )
-            .edgesIgnoringSafeArea(.bottom)
         }
+
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    .sandstone,
+                    .espresso,
                     .goldenBrown,
-                    .espresso
-                ]), startPoint: .topLeading, endPoint: .bottomTrailing
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
         )
         .onAppear {
@@ -146,9 +160,9 @@ struct UpdatePasswordView: View {
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard)
         .navigationBarBackButtonHidden()
-        
+
     }
-    
+
 }
 
 #Preview {

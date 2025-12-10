@@ -9,8 +9,9 @@ import Foundation
 import os.log
 
 struct UserMetadata: Codable {
-    var uid: String
-    var email: String
+    var uid: String?
+    var email: String?
+    var expiry: String?
 }
 
 struct UserPasswordServiceResponse: Codable {
@@ -128,7 +129,7 @@ struct VibesyUserPasswordService: UserPasswordService {
             throw SecurityError.invalidPassword
         }
         
-        guard otp.count == 6, otp.allSatisfy(\.isNumber) else {
+        guard otp.count == 4, otp.allSatisfy(\.isNumber) else {
             Self.logger.error("Invalid OTP format")
             throw SecurityError.invalidPassword
         }
@@ -212,17 +213,14 @@ struct VibesyUserPasswordService: UserPasswordService {
         // Sanitize inputs
         let sanitizedUID = await service.sanitizeInput(uid)
         
-        guard let url = URL(string: "\(baseURL)/password/reset") else {
+        guard let url = URL(string: "\(baseURL)/auth/reset-password") else {
             throw URLError(.badURL)
         }
         
         var request = await service.createSecureURLRequest(url: url)
         request.httpMethod = "POST"
         
-        // Hash the password before sending (additional security layer)
-        let hashedPassword = await service.hashSensitiveData(newPassword)
-        
-        let body = ["uid": sanitizedUID, "password": hashedPassword]
+        let body = ["uid": sanitizedUID, "password": newPassword]
         
         do {
             request.httpBody = try JSONEncoder().encode(body)

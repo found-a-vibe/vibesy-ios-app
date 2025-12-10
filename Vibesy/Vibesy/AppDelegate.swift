@@ -26,7 +26,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
         config.isLocalStorageEnabled = true
 
         var colors = ColorPalette()
-        colors.tintColor = Color(.sandstone)
+        colors.tintColor = Color(.goldenBrown)
     
         let appearance = Appearance(colors: colors)
         // The resulting config is passed into a new `ChatClient` instance.

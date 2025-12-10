@@ -20,12 +20,12 @@ struct InvoiceDisplayView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "doc.text")
                             .font(.system(size: 50))
-                            .foregroundColor(.sandstone)
+                            .foregroundColor(.goldenBrown)
                         
                         Text("Payment Receipt")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(.espresso)
+                            .foregroundColor(.goldenBrown)
                     }
                     .padding(.top)
                     

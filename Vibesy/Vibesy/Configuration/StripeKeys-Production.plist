@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>StripePublishableKey</key>
+	<string>pk_live_51S99X6BL5nOucVQ2GurQOl2aZawNcZXw5AP9afDZGD22vOB8jQelpbVIpxCR3vqlnU834PAzwxGX6QctAGCfmkjN00M3dXqOK7</string>
+	<key>BackendURL</key>
+	<string>https://one-time-password-service.onrender.com</string>
+	<key>MerchantId</key>
+	<string>merchant.com.vibesy</string>
+</dict>
+</plist>

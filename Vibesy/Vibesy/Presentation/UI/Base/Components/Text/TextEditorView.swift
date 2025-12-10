@@ -18,7 +18,7 @@ struct TextEditorView: View {
         ZStack(alignment: .topLeading) {
             TextEditor(text: $input)
                 .padding(.leading, 45)
-                .frame(maxHeight: 100)
+                .frame(height: 100)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.gray, lineWidth: 1)

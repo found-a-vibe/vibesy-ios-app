@@ -9,7 +9,6 @@ import SwiftUI
 
 enum Screen {
     case home
-    case onboarding
     case main
 }
 
@@ -27,8 +26,6 @@ struct ContentView: View {
             switch currentScreen {
             case .home:
                 HomeViewCoordinator()
-            case .onboarding:
-                OnboardingViewCoordinator()
             case .main:
                 MainView()
                     .task {
@@ -44,13 +41,15 @@ struct ContentView: View {
                     }
             }
         }
-        .onReceive(authenticationModel.$state.map(\.currentUser).removeDuplicates()) { user in
-            if let user = user {
-                currentScreen = user.isNewUser ? .onboarding : .main
-            } else {
-                currentScreen = .home
-            }
-        }
+        .onChange(of: authenticationModel.state.currentUser) {currentUser, updatedUser in
+                    if let user = updatedUser {
+                        if !user.isNewUser {
+                            currentScreen = .main
+                        }
+                    } else {
+                        currentScreen = .home
+                    }
+                }
     }
 }
 

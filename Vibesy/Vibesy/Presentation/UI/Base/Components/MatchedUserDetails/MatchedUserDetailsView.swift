@@ -44,7 +44,7 @@ struct MatchedUserDetailsView: View {
                 
                 Spacer()
                 Text(userProfileModel.currentMatchedProfile.fullName.capitalized)
-                    .font(.abeezeeItalic(size: 24))
+                    .font(.aBeeZeeRegular(size: 24))
                     .foregroundStyle(.espresso)
                     .padding(.trailing)
                 Spacer()
@@ -67,11 +67,11 @@ struct MatchedUserDetailsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         // Name and details
                         Text("Name: \(userProfileModel.currentMatchedProfile.fullName.capitalized)")
-                            .font(.abeezeeItalic(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("Age: \(userProfileModel.currentMatchedProfile.age)")
-                            .font(.abeezeeItalic(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         Text("Pronouns: \(userProfileModel.currentMatchedProfile.pronouns)")
-                            .font(.abeezeeItalic(size: 14))
+                            .font(.aBeeZeeRegular(size: 14))
                         if let uid = userProfileModel.currentMatchedProfile.uid {
                             if userProfileModel.userProfile.friends[uid] == nil {
                                 Button(action: {
@@ -90,11 +90,11 @@ struct MatchedUserDetailsView: View {
                                     getFriendButtonText()
                                 }) {
                                     Text(buttonStatusText)
-                                        .font(.abeezeeItalic(size: 12))
+                                        .font(.aBeeZeeRegular(size: 12))
                                         .foregroundColor(.white)
                                         .frame(maxWidth: 124, maxHeight: 28)
                                         .padding(2)
-                                        .background(.sandstone)
+                                        .background(.goldenBrown)
                                         .cornerRadius(8)
                                 }
                             }
@@ -106,10 +106,10 @@ struct MatchedUserDetailsView: View {
                 // "My Vibe" section
                 VStack(alignment: .leading, spacing: 8) {
                     Text("My Vibe")
-                        .font(.abeezeeItalic(size: 16))
+                        .font(.aBeeZeeRegular(size: 16))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(userProfileModel.currentMatchedProfile.bio)
-                        .font(.abeezeeItalic(size: 14))
+                        .font(.aBeeZeeRegular(size: 14))
                         .multilineTextAlignment(.leading)
                         .foregroundColor(.espresso)
                 }
@@ -118,7 +118,7 @@ struct MatchedUserDetailsView: View {
                 // Interests section
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Interests")
-                        .font(.abeezeeItalic(size: 16))
+                        .font(.aBeeZeeRegular(size: 16))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     HStack {
                         if !userProfileModel.currentMatchedProfile.interests.isEmpty {
@@ -132,7 +132,7 @@ struct MatchedUserDetailsView: View {
                 
                 VStack {
                     Text("Liked Events")
-                        .font(.abeezeeItalic(size: 16))
+                        .font(.aBeeZeeRegular(size: 16))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 10) {

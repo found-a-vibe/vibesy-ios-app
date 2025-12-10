@@ -34,7 +34,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.sandstone)
+                    .fill(.goldenBrown)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
                             .stroke(Color.espresso.opacity(0.3), lineWidth: 1)
@@ -56,7 +56,7 @@ struct OutlineButtonStyle: ButtonStyle {
                     .stroke(Color.espresso, lineWidth: 1.5)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(configuration.isPressed ? .sandstone : Color.clear)
+                            .fill(configuration.isPressed ? .goldenBrown : Color.clear)
                     )
             )
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)

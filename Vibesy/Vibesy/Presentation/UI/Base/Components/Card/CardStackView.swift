@@ -60,9 +60,9 @@ struct CardStackView: View {
                                 }
                             VStack(spacing: 12) {
                                 Text("It's A Vibe!")
-                                    .font(.abeezeeItalic(size: 20))
+                                    .font(.aBeeZeeRegular(size: 20))
                                 Text("This Vibe has been added to your liked\nevents, keep swiping for more")
-                                    .font(.abeezeeItalic(size: 14))
+                                    .font(.aBeeZeeRegular(size: 14))
                                     .multilineTextAlignment(.center)
                             }
                         }
@@ -77,7 +77,7 @@ struct CardStackView: View {
                         LinearGradient(
                             gradient: Gradient(colors: [
                                 .espresso,
-                                .sandstone,
+                                .goldenBrown,
                             ]), startPoint: .top, endPoint: .bottom
                         )
                     )
@@ -93,9 +93,9 @@ struct CardStackView: View {
                                 }
                             VStack(spacing: 12) {
                                 Text("Not A Vibe!")
-                                    .font(.abeezeeItalic(size: 20))
+                                    .font(.aBeeZeeRegular(size: 20))
                                 Text("Keep swiping to find a vibe.")
-                                    .font(.abeezeeItalic(size: 14))
+                                    .font(.aBeeZeeRegular(size: 14))
                                     .multilineTextAlignment(.center)
                             }
                         }
